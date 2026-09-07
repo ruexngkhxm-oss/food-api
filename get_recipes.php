@@ -75,20 +75,20 @@ $sql .= " LIMIT ?";
 $types  .= 'i';
 $params[] = $limit;
 
-$stmt = mysqli_prepare($conn, $sql);
+$stmt = db_prepare($conn, $sql);
 
 // bind_param แบบไดนามิก
 $bindNames = [$types];
 foreach ($params as $key => $value) {
     $bindNames[] = &$params[$key];
 }
-call_user_func_array('mysqli_stmt_bind_param', array_merge([$stmt], $bindNames));
+call_user_func_array('db_bind_param', array_merge([$stmt], $bindNames));
 
-mysqli_stmt_execute($stmt);
-$result = mysqli_stmt_get_result($stmt);
+db_execute($stmt);
+$result = db_get_result($stmt);
 
 $recipes = [];
-while ($row = mysqli_fetch_assoc($result)) {
+while ($row = db_fetch_assoc($result)) {
     $recipes[] = [
         'id'            => (int) $row['id'],
         'title'         => $row['title'],
@@ -116,7 +116,7 @@ while ($row = mysqli_fetch_assoc($result)) {
         'is_bookmarked' => false,
     ];
 }
-mysqli_stmt_close($stmt);
+db_stmt_close($stmt);
 
 // ----- แนบป้ายกำกับสายสุขภาพ (dietary_tags) ให้กับสูตรอาหารทุกสูตร -----
 if (count($recipes) > 0) {
@@ -128,19 +128,19 @@ if (count($recipes) > 0) {
                INNER JOIN dietary_tags dt ON rdt.tag_id = dt.id
                WHERE rdt.recipe_id IN ($placeholders)
                ORDER BY dt.sort_order ASC";
-    $tagStmt = mysqli_prepare($conn, $tagSql);
+    $tagStmt = db_prepare($conn, $tagSql);
 
     $tagTypes = str_repeat('i', count($recipeIds));
     $tagBindNames = [$tagTypes];
     foreach ($recipeIds as $key => $value) {
         $tagBindNames[] = &$recipeIds[$key];
     }
-    call_user_func_array('mysqli_stmt_bind_param', array_merge([$tagStmt], $tagBindNames));
-    mysqli_stmt_execute($tagStmt);
-    $tagResult = mysqli_stmt_get_result($tagStmt);
+    call_user_func_array('db_bind_param', array_merge([$tagStmt], $tagBindNames));
+    db_execute($tagStmt);
+    $tagResult = db_get_result($tagStmt);
 
     $recipeTagsMap = [];
-    while ($tagRow = mysqli_fetch_assoc($tagResult)) {
+    while ($tagRow = db_fetch_assoc($tagResult)) {
         $rId = (int) $tagRow['recipe_id'];
         $recipeTagsMap[$rId][] = [
             'id'   => (int) $tagRow['id'],
@@ -148,7 +148,7 @@ if (count($recipes) > 0) {
             'icon' => $tagRow['icon'],
         ];
     }
-    mysqli_stmt_close($tagStmt);
+    db_stmt_close($tagStmt);
 
     foreach ($recipes as &$recipe) {
         if (isset($recipeTagsMap[$recipe['id']])) {
@@ -164,7 +164,7 @@ if ($userId && count($recipes) > 0) {
     $placeholders = implode(',', array_fill(0, count($recipeIds), '?'));
 
     $bmSql = "SELECT recipe_id FROM bookmarks WHERE user_id = ? AND recipe_id IN ($placeholders)";
-    $bmStmt = mysqli_prepare($conn, $bmSql);
+    $bmStmt = db_prepare($conn, $bmSql);
 
     $bmTypes = 'i' . str_repeat('i', count($recipeIds));
     $bmParams = array_merge([$userId], $recipeIds);
@@ -172,15 +172,15 @@ if ($userId && count($recipes) > 0) {
     foreach ($bmParams as $key => $value) {
         $bmBindNames[] = &$bmParams[$key];
     }
-    call_user_func_array('mysqli_stmt_bind_param', array_merge([$bmStmt], $bmBindNames));
-    mysqli_stmt_execute($bmStmt);
-    $bmResult = mysqli_stmt_get_result($bmStmt);
+    call_user_func_array('db_bind_param', array_merge([$bmStmt], $bmBindNames));
+    db_execute($bmStmt);
+    $bmResult = db_get_result($bmStmt);
 
     $bookmarkedIds = [];
-    while ($bmRow = mysqli_fetch_assoc($bmResult)) {
+    while ($bmRow = db_fetch_assoc($bmResult)) {
         $bookmarkedIds[] = (int) $bmRow['recipe_id'];
     }
-    mysqli_stmt_close($bmStmt);
+    db_stmt_close($bmStmt);
 
     foreach ($recipes as &$recipe) {
         $recipe['is_bookmarked'] = in_array($recipe['id'], $bookmarkedIds, true);
@@ -194,4 +194,5 @@ send_response(200, [
     'recipes' => $recipes,
 ]);
 
-mysqli_close($conn);
+db_close($conn);
+?>

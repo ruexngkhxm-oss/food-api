@@ -1,13 +1,14 @@
 FROM php:8.1-apache
 
-# Install required PHP extensions for MySQL and Image handling
+# Install required PHP extensions for MySQL, SQLite and Image handling
 RUN apt-get update && apt-get install -y \
     libpng-dev \
     libjpeg-dev \
     libfreetype6-dev \
+    libsqlite3-dev \
     curl \
     && docker-php-ext-configure gd --with-freetype --with-jpeg \
-    && docker-php-ext-install -j$(nproc) gd mysqli pdo pdo_mysql
+    && docker-php-ext-install -j$(nproc) gd mysqli pdo pdo_mysql pdo_sqlite
 
 # Enable Apache rewrite module
 RUN a2enmod rewrite
@@ -15,7 +16,7 @@ RUN a2enmod rewrite
 # Copy all project files into Apache web root
 COPY . /var/www/html/
 
-# Create uploads directory with full read/write permissions for PHP uploads
+# Create uploads and data directories with full read/write permissions
 RUN mkdir -p /var/www/html/uploads && chmod -R 777 /var/www/html/uploads
 
 # Expose port 80 for Render.com

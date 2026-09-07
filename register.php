@@ -37,35 +37,35 @@ if (strlen($password) < 6) {
     send_response(400, ['success' => false, 'message' => 'รหัสผ่านต้องมีความยาวอย่างน้อย 6 ตัวอักษร']);
 }
 
-// ----- ตรวจสอบว่า username หรือ email ซ้ำหรือไม่ (Prepared Statement) -----
-$checkStmt = mysqli_prepare($conn, "SELECT id FROM users WHERE username = ? OR email = ? LIMIT 1");
+// ----- ตรวจสอบว่า username หรือ email ซ้ำหรือไม่ -----
+$checkStmt = db_prepare($conn, "SELECT id FROM users WHERE username = ? OR email = ? LIMIT 1");
 if ($checkStmt) {
-    mysqli_stmt_bind_param($checkStmt, 'ss', $username, $email);
-    mysqli_stmt_execute($checkStmt);
-    $checkResult = mysqli_stmt_get_result($checkStmt);
+    db_bind_param($checkStmt, 'ss', $username, $email);
+    db_execute($checkStmt);
+    $checkResult = db_get_result($checkStmt);
 
-    if ($checkResult && mysqli_num_rows($checkResult) > 0) {
+    if ($checkResult && db_num_rows($checkResult) > 0) {
         send_response(409, ['success' => false, 'message' => 'มีชื่อผู้ใช้หรืออีเมลนี้ในระบบแล้ว']);
     }
-    mysqli_stmt_close($checkStmt);
+    db_stmt_close($checkStmt);
 }
 
 // ----- แฮชรหัสผ่านด้วย password_hash() -----
 $hashedPassword = password_hash($password, PASSWORD_BCRYPT);
 $defaultAvatar = 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=300&q=80';
 
-// ----- บันทึกผู้ใช้ใหม่ (Prepared Statement) -----
-$insertStmt = mysqli_prepare(
+// ----- บันทึกผู้ใช้ใหม่ -----
+$insertStmt = db_prepare(
     $conn,
     "INSERT INTO users (username, email, password, full_name, avatar_url, role) VALUES (?, ?, ?, ?, ?, 'user')"
 );
 
 if ($insertStmt) {
-    mysqli_stmt_bind_param($insertStmt, 'sssss', $username, $email, $hashedPassword, $full_name, $defaultAvatar);
-    $executed = mysqli_stmt_execute($insertStmt);
+    db_bind_param($insertStmt, 'sssss', $username, $email, $hashedPassword, $full_name, $defaultAvatar);
+    $executed = db_execute($insertStmt);
 
     if ($executed) {
-        $newUserId = mysqli_insert_id($conn);
+        $newUserId = db_insert_id($conn);
         send_response(201, [
             'success' => true,
             'message' => 'สมัครสมาชิกสำเร็จ',
@@ -79,15 +79,14 @@ if ($insertStmt) {
             ],
         ]);
     } else {
-        $stmtErr = method_exists($insertStmt, 'error') ? $insertStmt->error : '';
-        $dbErr = !empty($stmtErr) ? $stmtErr : (mysqli_error($conn) ?: 'ไม่สามารถบันทึกข้อมูลได้');
+        $dbErr = db_error($conn, $insertStmt) ?: 'ไม่สามารถบันทึกข้อมูลได้';
         send_response(500, ['success' => false, 'message' => 'เกิดข้อผิดพลาดในการสมัครสมาชิก: ' . $dbErr]);
     }
-    mysqli_stmt_close($insertStmt);
+    db_stmt_close($insertStmt);
 } else {
-    $dbErr = mysqli_error($conn) ?: 'ไม่สามารถเตรียมคำสั่ง SQL ได้';
+    $dbErr = db_error($conn) ?: 'ไม่สามารถเตรียมคำสั่ง SQL ได้';
     send_response(500, ['success' => false, 'message' => 'เกิดข้อผิดพลาดในการเตรียมคำสั่ง SQL: ' . $dbErr]);
 }
 
-mysqli_close($conn);
+db_close($conn);
 ?>

@@ -29,47 +29,28 @@ $sql = "
     ORDER BY r.created_at DESC, r.id DESC
 ";
 
-$stmt = mysqli_prepare($conn, $sql);
-mysqli_stmt_bind_param($stmt, 'i', $userId);
-mysqli_stmt_execute($stmt);
-$result = mysqli_stmt_get_result($stmt);
-
-// If chef has no recipes under their user_id, fetch all recipes as default showcase
-if (!mysqli_num_rows($result)) {
-    mysqli_stmt_close($stmt);
-    $sql = "
-        SELECT r.id, r.title, r.description, r.image_url, r.prep_time, r.servings,
-               r.is_featured, r.view_count, r.created_at, r.ingredients AS raw_ingredients, r.instructions AS raw_instructions,
-               (SELECT COUNT(*) FROM bookmarks b WHERE b.recipe_id = r.id) AS favorite_count,
-               u.id AS author_id, u.full_name AS author_name, u.avatar_url AS author_avatar,
-               c.id AS category_id, c.name AS category_name, c.icon AS category_icon
-        FROM recipes r
-        INNER JOIN users u ON r.user_id = u.id
-        LEFT JOIN categories c ON r.category_id = c.id
-        ORDER BY r.created_at DESC, r.id DESC
-    ";
-    $stmt = mysqli_prepare($conn, $sql);
-    mysqli_stmt_execute($stmt);
-    $result = mysqli_stmt_get_result($stmt);
-}
+$stmt = db_prepare($conn, $sql);
+db_bind_param($stmt, 'i', $userId);
+db_execute($stmt);
+$result = db_get_result($stmt);
 
 $recipes = [];
-while ($row = mysqli_fetch_assoc($result)) {
+while ($row = db_fetch_assoc($result)) {
     $recipeId = (int) $row['id'];
 
     // ดึงวัตถุดิบ
-    $ingStmt = mysqli_prepare($conn, "SELECT ingredient_name, quantity FROM recipe_ingredients WHERE recipe_id = ? ORDER BY order_no ASC, id ASC");
-    mysqli_stmt_bind_param($ingStmt, 'i', $recipeId);
-    mysqli_stmt_execute($ingStmt);
-    $ingResult = mysqli_stmt_get_result($ingStmt);
+    $ingStmt = db_prepare($conn, "SELECT ingredient_name, quantity FROM recipe_ingredients WHERE recipe_id = ? ORDER BY order_no ASC, id ASC");
+    db_bind_param($ingStmt, 'i', $recipeId);
+    db_execute($ingStmt);
+    $ingResult = db_get_result($ingStmt);
     $ingredients = [];
-    while ($ingRow = mysqli_fetch_assoc($ingResult)) {
+    while ($ingRow = db_fetch_assoc($ingResult)) {
         $ingredients[] = [
             'name'     => $ingRow['ingredient_name'],
             'quantity' => $ingRow['quantity'],
         ];
     }
-    mysqli_stmt_close($ingStmt);
+    db_stmt_close($ingStmt);
 
     if (empty($ingredients) && !empty($row['raw_ingredients'])) {
         $decoded = json_decode($row['raw_ingredients'], true);
@@ -88,18 +69,18 @@ while ($row = mysqli_fetch_assoc($result)) {
     }
 
     // ดึงขั้นตอนการทำ
-    $stepStmt = mysqli_prepare($conn, "SELECT step_no, description FROM recipe_steps WHERE recipe_id = ? ORDER BY step_no ASC");
-    mysqli_stmt_bind_param($stepStmt, 'i', $recipeId);
-    mysqli_stmt_execute($stepStmt);
-    $stepResult = mysqli_stmt_get_result($stepStmt);
+    $stepStmt = db_prepare($conn, "SELECT step_no, description FROM recipe_steps WHERE recipe_id = ? ORDER BY step_no ASC");
+    db_bind_param($stepStmt, 'i', $recipeId);
+    db_execute($stepStmt);
+    $stepResult = db_get_result($stepStmt);
     $steps = [];
-    while ($stepRow = mysqli_fetch_assoc($stepResult)) {
+    while ($stepRow = db_fetch_assoc($stepResult)) {
         $steps[] = [
             'step_no'     => (int) $stepRow['step_no'],
             'description' => $stepRow['description'],
         ];
     }
-    mysqli_stmt_close($stepStmt);
+    db_stmt_close($stepStmt);
 
     if (empty($steps) && !empty($row['raw_instructions'])) {
         $decoded = json_decode($row['raw_instructions'], true);
@@ -123,19 +104,19 @@ while ($row = mysqli_fetch_assoc($result)) {
     }
 
     // ดึงป้ายกำกับสายสุขภาพ
-    $tagStmt = mysqli_prepare($conn, "SELECT dt.id, dt.name, dt.icon FROM recipe_dietary_tags rdt INNER JOIN dietary_tags dt ON rdt.tag_id = dt.id WHERE rdt.recipe_id = ? ORDER BY dt.sort_order ASC");
-    mysqli_stmt_bind_param($tagStmt, 'i', $recipeId);
-    mysqli_stmt_execute($tagStmt);
-    $tagResult = mysqli_stmt_get_result($tagStmt);
+    $tagStmt = db_prepare($conn, "SELECT dt.id, dt.name, dt.icon FROM recipe_dietary_tags rdt INNER JOIN dietary_tags dt ON rdt.tag_id = dt.id WHERE rdt.recipe_id = ? ORDER BY dt.sort_order ASC");
+    db_bind_param($tagStmt, 'i', $recipeId);
+    db_execute($tagStmt);
+    $tagResult = db_get_result($tagStmt);
     $dietaryTags = [];
-    while ($tagRow = mysqli_fetch_assoc($tagResult)) {
+    while ($tagRow = db_fetch_assoc($tagResult)) {
         $dietaryTags[] = [
             'id'   => (int) $tagRow['id'],
             'name' => $tagRow['name'],
             'icon' => $tagRow['icon'],
         ];
     }
-    mysqli_stmt_close($tagStmt);
+    db_stmt_close($tagStmt);
 
     $recipes[] = [
         'id'             => $recipeId,
@@ -163,7 +144,7 @@ while ($row = mysqli_fetch_assoc($result)) {
         'steps'          => $steps,
     ];
 }
-mysqli_stmt_close($stmt);
+db_stmt_close($stmt);
 
 send_response(200, [
     'success' => true,
@@ -171,5 +152,5 @@ send_response(200, [
     'recipes' => $recipes,
 ]);
 
-mysqli_close($conn);
+db_close($conn);
 ?>

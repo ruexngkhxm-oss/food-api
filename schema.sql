@@ -139,7 +139,7 @@ INSERT INTO categories (name, icon, sort_order) VALUES
 -- สูตรที่ 1: ผัดไทยกุ้งสด (หมวด ผัด)
 -- ------------------------------------------------------------
 INSERT INTO recipes (user_id, category_id, title, description, image_url, prep_time, servings, is_featured) VALUES
-(1, 2, 'ผัดไทยกุ้งสด', 'ผัดไทยสูตรต้นตำรับ เส้นนุ่มเหนียวกำลังดี รสเปรี้ยวหวานเค็มลงตัว ใส่กุ้งสดตัวโตให้ความหวานธรรมชาติ',
+(3, 2, 'ผัดไทยกุ้งสด', 'ผัดไทยสูตรต้นตำรับ เส้นนุ่มเหนียวกำลังดี รสเปรี้ยวหวานเค็มลงตัว ใส่กุ้งสดตัวโตให้ความหวานธรรมชาติ',
  'https://images.unsplash.com/photo-1559314809-0d155014e29e?w=1200&q=80', 30, 2, 1);
 SET @padthai_id = LAST_INSERT_ID();
 
@@ -173,7 +173,7 @@ INSERT INTO recipe_steps (recipe_id, step_no, description) VALUES
 -- สูตรที่ 2: ต้มยำกุ้ง (หมวด ต้ม)
 -- ------------------------------------------------------------
 INSERT INTO recipes (user_id, category_id, title, description, image_url, prep_time, servings, is_featured) VALUES
-(1, 1, 'ต้มยำกุ้ง', 'ต้มยำกุ้งน้ำข้น รสจัดจ้าน เปรี้ยวเผ็ดเค็มหวานครบรส หอมเครื่องต้มยำสมุนไพรไทย',
+(3, 1, 'ต้มยำกุ้ง', 'ต้มยำกุ้งน้ำข้น รสจัดจ้าน เปรี้ยวเผ็ดเค็มหวานครบรส หอมเครื่องต้มยำสมุนไพรไทย',
  'https://images.unsplash.com/photo-1548943487-a2e4e43b4853?w=1200&q=80', 25, 3, 1);
 SET @tomyum_id = LAST_INSERT_ID();
 
@@ -206,7 +206,7 @@ INSERT INTO recipe_steps (recipe_id, step_no, description) VALUES
 -- สูตรที่ 3: แกงเขียวหวานไก่ (หมวด แกง)
 -- ------------------------------------------------------------
 INSERT INTO recipes (user_id, category_id, title, description, image_url, prep_time, servings, is_featured) VALUES
-(2, 3, 'แกงเขียวหวานไก่', 'แกงเขียวหวานสูตรเข้มข้น หอมกะทิ เผ็ดกำลังดี ใส่มะเขือเปราะและใบโหระพาหอมสดชื่น',
+(3, 3, 'แกงเขียวหวานไก่', 'แกงเขียวหวานสูตรเข้มข้น หอมกะทิ เผ็ดกำลังดี ใส่มะเขือเปราะและใบโหระพาหอมสดชื่น',
  'https://images.unsplash.com/photo-1455619452474-d2be8b1e70cd?w=1200&q=80', 40, 4, 0);
 SET @curry_id = LAST_INSERT_ID();
 
@@ -237,7 +237,7 @@ INSERT INTO recipe_steps (recipe_id, step_no, description) VALUES
 -- สูตรที่ 4: ข้าวผัดไข่ (หมวด ข้าว)
 -- ------------------------------------------------------------
 INSERT INTO recipes (user_id, category_id, title, description, image_url, prep_time, servings, is_featured) VALUES
-(2, 7, 'ข้าวผัดไข่', 'เมนูง่ายๆ ทำได้ไวใน 15 นาที ข้าวสวยหอมผัดกับไข่เยิ้มๆ เหมาะเป็นมื้อด่วนสำหรับทุกวัน',
+(3, 7, 'ข้าวผัดไข่', 'เมนูง่ายๆ ทำได้ไวใน 15 นาที ข้าวสวยหอมผัดกับไข่เยิ้มๆ เหมาะเป็นมื้อด่วนสำหรับทุกวัน',
  'https://images.unsplash.com/photo-1603133872878-684f208fb84b?w=1200&q=80', 15, 1, 1);
 SET @friedrice_id = LAST_INSERT_ID();
 
@@ -265,7 +265,7 @@ INSERT INTO recipe_steps (recipe_id, step_no, description) VALUES
 -- สูตรที่ 5: หมูกระเทียมพริกไทย (หมวด ผัด)
 -- ------------------------------------------------------------
 INSERT INTO recipes (user_id, category_id, title, description, image_url, prep_time, servings, is_featured) VALUES
-(1, 2, 'หมูกระเทียมพริกไทย', 'หมูสไลซ์นุ่มๆ ผัดกับกระเทียมเจียวหอมกรอบและพริกไทยสด กินคู่ข้าวสวยร้อนๆ อร่อยเข้ากันสุดๆ',
+(3, 2, 'หมูกระเทียมพริกไทย', 'หมูสไลซ์นุ่มๆ ผัดกับกระเทียมเจียวหอมกรอบและพริกไทยสด กินคู่ข้าวสวยร้อนๆ อร่อยเข้ากันสุดๆ',
  'https://images.unsplash.com/photo-1544025162-d76694265947?w=1200&q=80', 20, 2, 0);
 SET @moukratiam_id = LAST_INSERT_ID();
 

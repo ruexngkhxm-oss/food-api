@@ -23,16 +23,16 @@ if ($identifier === '' || $password === '') {
 }
 
 // ----- ค้นหาผู้ใช้ด้วย Prepared Statement -----
-$stmt = mysqli_prepare(
+$stmt = db_prepare(
     $conn,
     'SELECT id, username, email, password, full_name, avatar_url, bio, role
      FROM users WHERE username = ? OR email = ? LIMIT 1'
 );
-mysqli_stmt_bind_param($stmt, 'ss', $identifier, $identifier);
-mysqli_stmt_execute($stmt);
-$result = mysqli_stmt_get_result($stmt);
-$user = mysqli_fetch_assoc($result);
-mysqli_stmt_close($stmt);
+db_bind_param($stmt, 'ss', $identifier, $identifier);
+db_execute($stmt);
+$result = db_get_result($stmt);
+$user = db_fetch_assoc($result);
+db_stmt_close($stmt);
 
 $passOk = $user ? (password_verify($password, $user['password']) || $user['password'] === $password) : false;
 if (!$user || !$passOk) {
@@ -52,4 +52,5 @@ send_response(200, [
     'user'    => $user,
 ]);
 
-mysqli_close($conn);
+db_close($conn);
+?>

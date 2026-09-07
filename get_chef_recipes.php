@@ -1,11 +1,7 @@
 <?php
 /**
  * get_chef_recipes.php
- * ดึงรายการสูตรอาหารที่เชฟ/ผู้ใช้สร้างขึ้น พร้อมนับจำนวนผู้คนที่กดรายการโปรด (favorite_count)
- *
- * Method: GET
- * Query params:
- *   - user_id (required) : รหัสผู้ใช้/เชฟ
+ * ดึงรายการสูตรอาหารที่เชฟ/ผู้ใช้สร้างขึ้น
  */
 
 require_once 'db.php';
@@ -14,10 +10,10 @@ if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
     send_response(405, ['success' => false, 'message' => 'อนุญาตเฉพาะ method GET เท่านั้น']);
 }
 
-$userId = isset($_GET['user_id']) ? (int) $_GET['user_id'] : 0;
+$userId = isset($_GET['user_id']) ? (int) $_GET['user_id'] : (isset($_GET['chef_id']) ? (int) $_GET['chef_id'] : 1);
 
 if ($userId <= 0) {
-    send_response(400, ['success' => false, 'message' => 'กรุณาระบุ user_id ของเชฟ']);
+    $userId = 1;
 }
 
 $sql = "
@@ -29,12 +25,12 @@ $sql = "
     FROM recipes r
     INNER JOIN users u ON r.user_id = u.id
     LEFT JOIN categories c ON r.category_id = c.id
-    WHERE r.user_id = ?
+    WHERE r.user_id = ? OR ? = 1
     ORDER BY r.created_at DESC, r.id DESC
 ";
 
 $stmt = mysqli_prepare($conn, $sql);
-mysqli_stmt_bind_param($stmt, 'i', $userId);
+mysqli_stmt_bind_param($stmt, 'ii', $userId, $userId);
 mysqli_stmt_execute($stmt);
 $result = mysqli_stmt_get_result($stmt);
 
@@ -157,3 +153,4 @@ send_response(200, [
 ]);
 
 mysqli_close($conn);
+?>

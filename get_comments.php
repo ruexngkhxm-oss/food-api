@@ -1,22 +1,112 @@
 <?php
-require_once __DIR__ . '/db.php';
+/**
+ * get_comments.php
+ * ดึงรายการความคิดเห็น ตอบกลับ และคะแนนดาวของสูตรอาหาร (จัดโครงสร้างแบบตอบกลับย่อย)
+ *
+ * Method: GET
+ * Query params:
+ *   - recipe_id (required int)
+ *   - user_id   (optional int - ใช้เช็คว่าผู้ใช้นี้เคยให้ดาวสูตรนี้หรือยัง)
+ */
 
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-    sendJsonResponse(["status" => "ok"]);
+require_once 'db.php';
+
+if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
+    send_response(405, ['success' => false, 'message' => 'อนุญาตเฉพาะ method GET เท่านั้น']);
 }
 
-$recipeId = intval($_GET['recipe_id'] ?? 0);
-$db = getDb();
+$recipeId = isset($_GET['recipe_id']) ? (int) $_GET['recipe_id'] : 0;
+$userId   = isset($_GET['user_id']) ? (int) $_GET['user_id'] : 0;
 
-if ($recipeId > 0) {
-    $stmt = $db->prepare("SELECT * FROM comments WHERE recipe_id = :r ORDER BY id DESC");
-    $stmt->execute([':r' => $recipeId]);
-} else {
-    $stmt = $db->query("SELECT * FROM comments ORDER BY id DESC");
+if ($recipeId <= 0) {
+    send_response(400, ['success' => false, 'message' => 'กรุณาระบุ recipe_id']);
 }
 
-sendJsonResponse([
-    "success" => true,
-    "data" => $stmt->fetchAll()
+$stmt = mysqli_prepare($conn, "
+    SELECT rr.id, rr.recipe_id, rr.parent_id, rr.rating, rr.comment, rr.created_at,
+           u.id AS user_id, u.full_name, u.avatar_url, u.role
+    FROM recipe_reviews rr
+    INNER JOIN users u ON rr.user_id = u.id
+    WHERE rr.recipe_id = ?
+    ORDER BY rr.created_at ASC, rr.id ASC
+");
+mysqli_stmt_bind_param($stmt, 'i', $recipeId);
+mysqli_stmt_execute($stmt);
+$result = mysqli_stmt_get_result($stmt);
+
+$topLevelComments = [];
+$repliesMap = [];
+
+while ($row = mysqli_fetch_assoc($result)) {
+    $c = [
+        'id'         => (int) $row['id'],
+        'recipe_id'  => (int) $row['recipe_id'],
+        'parent_id'  => $row['parent_id'] ? (int) $row['parent_id'] : null,
+        'rating'     => $row['rating'] ? (int) $row['rating'] : null,
+        'comment'    => $row['comment'],
+        'created_at' => $row['created_at'],
+        'author'     => [
+            'id'         => (int) $row['user_id'],
+            'full_name'  => $row['full_name'],
+            'avatar_url' => $row['avatar_url'],
+            'role'       => $row['role'],
+        ],
+        'replies'    => [],
+    ];
+
+    if ($c['parent_id'] === null) {
+        $topLevelComments[$c['id']] = $c;
+    } else {
+        $repliesMap[$c['parent_id']][] = $c;
+    }
+}
+mysqli_stmt_close($stmt);
+
+// ประกบการตอบกลับย่อยใส่ topLevelComments
+foreach ($topLevelComments as $id => &$topComment) {
+    if (isset($repliesMap[$id])) {
+        $topComment['replies'] = $repliesMap[$id];
+    }
+}
+unset($topComment);
+
+// คำนวณคะแนนดาวเฉลี่ยสำหรับสูตรนี้
+$avgStmt = mysqli_prepare($conn, "
+    SELECT ROUND(AVG(rating), 1) AS avg_rating, COUNT(rating) AS rating_count
+    FROM recipe_reviews
+    WHERE recipe_id = ? AND rating IS NOT NULL
+");
+mysqli_stmt_bind_param($avgStmt, 'i', $recipeId);
+mysqli_stmt_execute($avgStmt);
+$avgRow = mysqli_fetch_assoc(mysqli_stmt_get_result($avgStmt));
+mysqli_stmt_close($avgStmt);
+
+$avgRating   = $avgRow['avg_rating'] !== null ? (float) $avgRow['avg_rating'] : 0.0;
+$ratingCount = (int) ($avgRow['rating_count'] ?? 0);
+
+// ตรวจสอบว่าผู้ใช้ปัจจุบันเคยให้ดาวสูตรนี้ไปแล้วหรือยัง
+$userHasRated = false;
+$userRating   = null;
+if ($userId > 0) {
+    $userRateStmt = mysqli_prepare($conn, "SELECT rating FROM recipe_reviews WHERE recipe_id = ? AND user_id = ? AND rating IS NOT NULL LIMIT 1");
+    mysqli_stmt_bind_param($userRateStmt, 'ii', $recipeId, $userId);
+    mysqli_stmt_execute($userRateStmt);
+    $userRateRes = mysqli_stmt_get_result($userRateStmt);
+    if ($userRateRow = mysqli_fetch_assoc($userRateRes)) {
+        $userHasRated = true;
+        $userRating   = (int) $userRateRow['rating'];
+    }
+    mysqli_stmt_close($userRateStmt);
+}
+
+send_response(200, [
+    'success'        => true,
+    'avg_rating'     => $avgRating,
+    'rating_count'   => $ratingCount,
+    'user_has_rated' => $userHasRated,
+    'user_rating'    => $userRating,
+    'count'          => count($topLevelComments),
+    'comments'       => array_values($topLevelComments),
 ]);
-?>
+
+mysqli_close($conn);

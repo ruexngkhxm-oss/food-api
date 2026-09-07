@@ -1,51 +1,75 @@
 <?php
-require_once __DIR__ . '/db.php';
+/**
+ * register.php
+ * สมัครสมาชิกใหม่
+ *
+ * Method: POST
+ * Body (JSON): { "username", "email", "password", "full_name" }
+ */
 
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-    sendJsonResponse(["status" => "ok"]);
+require_once 'db.php';
+
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    send_response(405, ['success' => false, 'message' => 'อนุญาตเฉพาะ method POST เท่านั้น']);
 }
 
-$input = json_decode(file_get_contents('php://input'), true) ?? $_POST;
+$body = get_json_body();
 
-$fullName = trim($input['full_name'] ?? $input['name'] ?? '');
-$username = trim($input['username'] ?? '');
-$email = trim($input['email'] ?? '');
-$password = trim($input['password'] ?? '');
+$username  = trim($body['username']  ?? '');
+$email     = trim($body['email']     ?? '');
+$password  = trim($body['password']  ?? '');
+$full_name = trim($body['full_name'] ?? '');
 
-if (empty($username) || empty($password)) {
-    sendJsonResponse(["success" => false, "message" => "กรุณากรอกชื่อผู้ใช้และรหัสผ่าน"], 400);
+// ----- Validation -----
+if ($username === '' || $email === '' || $password === '' || $full_name === '') {
+    send_response(400, ['success' => false, 'message' => 'กรุณากรอกข้อมูลให้ครบทุกช่อง']);
 }
 
-$db = getDb();
-
-// Check if username already exists
-$stmt = $db->prepare("SELECT COUNT(*) as cnt FROM users WHERE username = :u");
-$stmt->execute([':u' => $username]);
-if ($stmt->fetch()['cnt'] > 0) {
-    sendJsonResponse(["success" => false, "message" => "ชื่อผู้ใช้นี้มีอยู่ในระบบแล้ว"], 400);
+if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+    send_response(400, ['success' => false, 'message' => 'รูปแบบอีเมลไม่ถูกต้อง']);
 }
 
-// Insert new user
-$stmt = $db->prepare("INSERT INTO users (username, full_name, email, password, role, avatar_url) VALUES (:u, :fn, :e, :p, 'user', 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=400&q=80')");
-$stmt->execute([
-    ':u' => $username,
-    ':fn' => $fullName ?: $username,
-    ':e' => $email,
-    ':p' => $password
-]);
+if (strlen($password) < 6) {
+    send_response(400, ['success' => false, 'message' => 'รหัสผ่านต้องมีความยาวอย่างน้อย 6 ตัวอักษร']);
+}
 
-$newId = $db->lastInsertId();
+// ----- ตรวจสอบว่า username หรือ email ซ้ำหรือไม่ (Prepared Statement) -----
+$checkStmt = mysqli_prepare($conn, 'SELECT id FROM users WHERE username = ? OR email = ? LIMIT 1');
+mysqli_stmt_bind_param($checkStmt, 'ss', $username, $email);
+mysqli_stmt_execute($checkStmt);
+$checkResult = mysqli_stmt_get_result($checkStmt);
 
-sendJsonResponse([
-    "success" => true,
-    "message" => "สมัครสมาชิกสำเร็จเรียบร้อยแล้ว",
-    "user" => [
-        "id" => $newId,
-        "username" => $username,
-        "full_name" => $fullName ?: $username,
-        "email" => $email,
-        "role" => "user",
-        "avatar_url" => "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=400&q=80"
-    ]
-]);
-?>
+if (mysqli_num_rows($checkResult) > 0) {
+    send_response(409, ['success' => false, 'message' => 'มีชื่อผู้ใช้หรืออีเมลนี้ในระบบแล้ว']);
+}
+mysqli_stmt_close($checkStmt);
+
+// ----- แฮชรหัสผ่านด้วย password_hash() -----
+$hashedPassword = password_hash($password, PASSWORD_BCRYPT);
+
+// ----- บันทึกผู้ใช้ใหม่ (Prepared Statement) -----
+$insertStmt = mysqli_prepare(
+    $conn,
+    'INSERT INTO users (username, email, password, full_name) VALUES (?, ?, ?, ?)'
+);
+mysqli_stmt_bind_param($insertStmt, 'ssss', $username, $email, $hashedPassword, $full_name);
+
+if (mysqli_stmt_execute($insertStmt)) {
+    $newUserId = mysqli_insert_id($conn);
+    send_response(201, [
+        'success' => true,
+        'message' => 'สมัครสมาชิกสำเร็จ',
+        'user' => [
+            'id'        => $newUserId,
+            'username'  => $username,
+            'email'     => $email,
+            'full_name' => $full_name,
+            'avatar_url'=> null,
+        ],
+    ]);
+} else {
+    send_response(500, ['success' => false, 'message' => 'เกิดข้อผิดพลาดในการสมัครสมาชิก']);
+}
+
+mysqli_stmt_close($insertStmt);
+mysqli_close($conn);

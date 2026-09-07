@@ -1,99 +1,63 @@
 <?php
-// Shared Database connection helper using SQLite (no setup required)
-function getDb() {
-    static $db = null;
-    if ($db === null) {
-        $dbPath = __DIR__ . '/database.sqlite';
-        $db = new PDO('sqlite:' . $dbPath);
-        $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-        $db->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
+/**
+ * db.php
+ * เชื่อมต่อฐานข้อมูล MySQL/MariaDB ด้วย mysqli + ตั้งค่า Header กลางสำหรับทุก endpoint
+ */
 
-        // Auto-create tables if they don't exist
-        $db->exec("
-            CREATE TABLE IF NOT EXISTS users (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                username TEXT UNIQUE,
-                full_name TEXT,
-                email TEXT,
-                password TEXT,
-                role TEXT DEFAULT 'user',
-                avatar_url TEXT
-            );
+// ----- Response headers (ใช้ร่วมกันทุกไฟล์ API) -----
+header('Content-Type: application/json; charset=utf-8');
+header('Access-Control-Allow-Origin: *');
+header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
+header('Access-Control-Allow-Headers: Content-Type, Authorization');
 
-            CREATE TABLE IF NOT EXISTS categories (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                name TEXT,
-                icon TEXT
-            );
-
-            CREATE TABLE IF NOT EXISTS dietary_tags (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                name TEXT
-            );
-
-            CREATE TABLE IF NOT EXISTS recipes (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                title TEXT,
-                description TEXT,
-                category_id INTEGER,
-                chef_name TEXT,
-                image_url TEXT,
-                cooking_time INTEGER,
-                servings INTEGER,
-                difficulty TEXT,
-                ingredients TEXT,
-                steps TEXT,
-                status TEXT DEFAULT 'published',
-                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-            );
-
-            CREATE TABLE IF NOT EXISTS comments (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                recipe_id INTEGER,
-                author_name TEXT,
-                comment_text TEXT,
-                rating INTEGER DEFAULT 5,
-                chef_reply TEXT,
-                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-            );
-        ");
-
-        // Seed initial data if empty
-        $stmt = $db->query("SELECT COUNT(*) as count FROM categories");
-        if ($stmt->fetch()['count'] == 0) {
-            $db->exec("
-                INSERT INTO categories (name, icon) VALUES 
-                ('อาหารจานเดียว', '🍲'),
-                ('ของหวาน', '🍰'),
-                ('เครื่องดื่ม', '🥤'),
-                ('อาหารคลีน', '🥗');
-
-                INSERT INTO dietary_tags (name) VALUES 
-                ('🕌 ฮาลาล (Halal)'),
-                ('🥗 อาหารคลีน (Clean Food)'),
-                ('🥑 คีโต (Keto)'),
-                ('🌱 มังสวิรัติ (Vegetarian)'),
-                ('🥦 อาหารเจ (Vegan)'),
-                ('🥩 โลว์คาร์บ (Low Carb)');
-
-                INSERT INTO users (username, full_name, email, password, role, avatar_url) VALUES
-                ('admin', 'เตวรากรหมู่ 6', 'admin@chef.com', '123456', 'chef', 'https://images.unsplash.com/photo-1577219491135-ce391730fb2c?auto=format&fit=crop&w=400&q=80');
-
-                INSERT INTO recipes (title, description, category_id, chef_name, image_url, cooking_time, servings, difficulty, ingredients, steps) VALUES
-                ('ต้มยำกุ้งน้ำข้น', 'ต้มยำกุ้งสูตรเด็ด รสชาติเข้มข้น หอมเครื่องต้มยำสดใหม่', 1, 'เตวรากรหมู่ 6', 'https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&w=800&q=80', 25, 2, 'ปานกลาง', '[\"กุ้งสด 500g\", \"ข่า ตะไคร้ ใบมะกรูด\", \"พริกเผา 2 ชต.\", \"นมข้นจืด 1/2 ถ้วย\"]', '[\"ต้มน้ำให้เดือด ใส่ข่า ตะไคร้ ใบมะกรูด\", \"ใส่มะขามเปียก พริกเผา และกุ้ง\", \"เติมนมข้นจืด ยกลง ปรุงรสตามชอบ\"]');
-            ");
-        }
-    }
-    return $db;
+// ตอบ Preflight request ของ CORS แล้วจบการทำงานทันที
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    http_response_code(200);
+    exit();
 }
 
-function sendJsonResponse($data, $statusCode = 200) {
-    header("Access-Control-Allow-Origin: *");
-    header("Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS");
-    header("Access-Control-Allow-Headers: Content-Type, Authorization");
-    header("Content-Type: application/json; charset=UTF-8");
-    http_response_code($statusCode);
-    echo json_encode($data, JSON_UNESCAPED_UNICODE);
+// ----- Database configuration -----
+define('DB_HOST', getenv('DB_HOST') ?: '127.0.0.1');
+define('DB_USER', getenv('DB_USER') ?: 'root');
+define('DB_PASS', getenv('DB_PASS') ?: '');
+define('DB_NAME', getenv('DB_NAME') ?: 'food_api');
+
+// สร้างการเชื่อมต่อ
+$conn = mysqli_connect(DB_HOST, DB_USER, DB_PASS, DB_NAME);
+
+if (!$conn) {
+    // ลองเชื่อมต่อผ่าน socket/localhost หาก 127.0.0.1 ไม่ผ่าน
+    $conn = mysqli_connect('localhost', DB_USER, DB_PASS, DB_NAME);
+}
+
+if (!$conn) {
+    http_response_code(500);
+    echo json_encode([
+        'success' => false,
+        'message' => 'ไม่สามารถเชื่อมต่อฐานข้อมูลได้: ' . mysqli_connect_error(),
+    ], JSON_UNESCAPED_UNICODE);
     exit();
+}
+
+mysqli_set_charset($conn, 'utf8mb4');
+
+/**
+ * ฟังก์ชันช่วยส่ง JSON response พร้อม HTTP status code แล้วจบการทำงาน
+ */
+function send_response(int $statusCode, array $payload): void
+{
+    http_response_code($statusCode);
+    echo json_encode($payload, JSON_UNESCAPED_UNICODE);
+    exit();
+}
+
+/**
+ * ฟังก์ชันช่วยอ่าน JSON body ของ request (สำหรับ POST ที่ส่งเป็น application/json)
+ */
+function get_json_body(): array
+{
+    $raw = file_get_contents('php://input');
+    $data = json_decode($raw, true);
+    return is_array($data) ? $data : [];
 }
 ?>

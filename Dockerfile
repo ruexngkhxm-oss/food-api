@@ -16,12 +16,16 @@ RUN a2enmod rewrite
 # Copy all project files into Apache web root
 COPY . /var/www/html/
 
-# Copy entrypoint startup script
-COPY entrypoint.sh /usr/local/bin/entrypoint.sh
-RUN chmod +x /usr/local/bin/entrypoint.sh
+# Create uploads directory and set full permissions
+RUN mkdir -p /var/www/html/uploads && chmod -R 777 /var/www/html/uploads
+
+# Pre-initialize MariaDB database and import schema.sql with real recipes
+RUN service mariadb start && \
+    mysql -e "CREATE DATABASE IF NOT EXISTS food_api CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;" && \
+    mysql food_api < /var/www/html/schema.sql
 
 # Expose port 80 for Render.com
 EXPOSE 80
 
-# Execute entrypoint script on startup
-ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
+# Start MariaDB service and Apache web server on container startup
+CMD service mariadb start && apache2-foreground

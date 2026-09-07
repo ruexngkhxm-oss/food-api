@@ -38,7 +38,7 @@ if (strlen($password) < 6) {
 }
 
 // ----- ตรวจสอบว่า username หรือ email ซ้ำหรือไม่ (Prepared Statement) -----
-$checkStmt = mysqli_prepare($conn, 'SELECT id FROM users WHERE username = ? OR email = ? LIMIT 1');
+$checkStmt = mysqli_prepare($conn, "SELECT id FROM users WHERE username = ? OR email = ? LIMIT 1");
 if ($checkStmt) {
     mysqli_stmt_bind_param($checkStmt, 'ss', $username, $email);
     mysqli_stmt_execute($checkStmt);
@@ -57,7 +57,7 @@ $defaultAvatar = 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w
 // ----- บันทึกผู้ใช้ใหม่ (Prepared Statement) -----
 $insertStmt = mysqli_prepare(
     $conn,
-    'INSERT INTO users (username, email, password, full_name, avatar_url, role) VALUES (?, ?, ?, ?, ?, "user")'
+    "INSERT INTO users (username, email, password, full_name, avatar_url, role) VALUES (?, ?, ?, ?, ?, 'user')"
 );
 
 if ($insertStmt) {
@@ -79,12 +79,13 @@ if ($insertStmt) {
             ],
         ]);
     } else {
-        $dbErr = mysqli_error($conn);
+        $stmtErr = method_exists($insertStmt, 'error') ? $insertStmt->error : '';
+        $dbErr = !empty($stmtErr) ? $stmtErr : (mysqli_error($conn) ?: 'ไม่สามารถบันทึกข้อมูลได้');
         send_response(500, ['success' => false, 'message' => 'เกิดข้อผิดพลาดในการสมัครสมาชิก: ' . $dbErr]);
     }
     mysqli_stmt_close($insertStmt);
 } else {
-    $dbErr = mysqli_error($conn);
+    $dbErr = mysqli_error($conn) ?: 'ไม่สามารถเตรียมคำสั่ง SQL ได้';
     send_response(500, ['success' => false, 'message' => 'เกิดข้อผิดพลาดในการเตรียมคำสั่ง SQL: ' . $dbErr]);
 }
 

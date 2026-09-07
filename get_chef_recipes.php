@@ -25,14 +25,33 @@ $sql = "
     FROM recipes r
     INNER JOIN users u ON r.user_id = u.id
     LEFT JOIN categories c ON r.category_id = c.id
-    WHERE r.user_id = ? OR ? = 1
+    WHERE r.user_id = ?
     ORDER BY r.created_at DESC, r.id DESC
 ";
 
 $stmt = mysqli_prepare($conn, $sql);
-mysqli_stmt_bind_param($stmt, 'ii', $userId, $userId);
+mysqli_stmt_bind_param($stmt, 'i', $userId);
 mysqli_stmt_execute($stmt);
 $result = mysqli_stmt_get_result($stmt);
+
+// If chef has no recipes under their user_id, fetch all recipes as default showcase
+if (!mysqli_num_rows($result)) {
+    mysqli_stmt_close($stmt);
+    $sql = "
+        SELECT r.id, r.title, r.description, r.image_url, r.prep_time, r.servings,
+               r.is_featured, r.view_count, r.created_at, r.ingredients AS raw_ingredients, r.instructions AS raw_instructions,
+               (SELECT COUNT(*) FROM bookmarks b WHERE b.recipe_id = r.id) AS favorite_count,
+               u.id AS author_id, u.full_name AS author_name, u.avatar_url AS author_avatar,
+               c.id AS category_id, c.name AS category_name, c.icon AS category_icon
+        FROM recipes r
+        INNER JOIN users u ON r.user_id = u.id
+        LEFT JOIN categories c ON r.category_id = c.id
+        ORDER BY r.created_at DESC, r.id DESC
+    ";
+    $stmt = mysqli_prepare($conn, $sql);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+}
 
 $recipes = [];
 while ($row = mysqli_fetch_assoc($result)) {

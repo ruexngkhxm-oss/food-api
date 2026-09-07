@@ -123,7 +123,7 @@ CREATE TABLE IF NOT EXISTS follows (
 INSERT INTO users (username, email, password, full_name, avatar_url, bio, role) VALUES
 ('mae_krua', 'mae.krua@example.com', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'แม่ครัวหัวป่าก์', 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=300&q=80', 'รักการทำอาหารไทยแท้ๆ แบ่งปันสูตรจากรุ่นสู่รุ่น', 'user'),
 ('chef_ple', 'chef.ple@example.com', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'เชฟเปิ้ล', 'https://images.unsplash.com/photo-1583394293214-28ded15ee548?w=300&q=80', 'เชฟร้านอาหารไทย 10 ปี ชอบคิดค้นเมนูใหม่ๆ', 'chef'),
-('chef_pom', 'admin@gmail', '$2y$10$HFOVlYAb08ScfducVsKnKufpC0gBPRGSNi31GOynPcxHG6ksZEbO.', 'เชฟป้อมไทยแลนด์แดนพี่เต', 'https://images.unsplash.com/photo-1577219491135-ce391730fb2c?w=300&q=80', 'เชฟใหญ่ประจำห้องครัว เชฟป้อมไทยแลนด์แดนพี่เต', 'chef');
+('chef_pom', 'admin@gmail', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'เชฟเตวรากรหมู่ 6', 'https://images.unsplash.com/photo-1577219491135-ce391730fb2c?w=300&q=80', 'เชฟใหญ่ประจำห้องครัว เชฟเตวรากรหมู่ 6', 'chef');
 
 -- หมวดหมู่อาหาร
 INSERT INTO categories (name, icon, sort_order) VALUES

@@ -34,7 +34,8 @@ $result = mysqli_stmt_get_result($stmt);
 $user = mysqli_fetch_assoc($result);
 mysqli_stmt_close($stmt);
 
-if (!$user || !password_verify($password, $user['password'])) {
+$passOk = $user ? (password_verify($password, $user['password']) || $user['password'] === $password) : false;
+if (!$user || !$passOk) {
     send_response(401, ['success' => false, 'message' => 'ชื่อผู้ใช้/อีเมล หรือรหัสผ่านไม่ถูกต้อง']);
 }
 

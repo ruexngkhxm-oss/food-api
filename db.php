@@ -17,17 +17,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 }
 
 // ----- Database configuration -----
-define('DB_HOST', getenv('DB_HOST') ?: '127.0.0.1');
+define('DB_HOST', getenv('DB_HOST') ?: 'localhost');
 define('DB_USER', getenv('DB_USER') ?: 'root');
 define('DB_PASS', getenv('DB_PASS') ?: '');
 define('DB_NAME', getenv('DB_NAME') ?: 'food_api');
 
-// สร้างการเชื่อมต่อ
-$conn = mysqli_connect(DB_HOST, DB_USER, DB_PASS, DB_NAME);
-
+// ลองเชื่อมต่อผ่าน socket (localhost) ก่อน แล้วค่อยลอง TCP (127.0.0.1)
+$conn = @mysqli_connect('localhost', DB_USER, DB_PASS, DB_NAME);
 if (!$conn) {
-    // ลองเชื่อมต่อผ่าน socket/localhost หาก 127.0.0.1 ไม่ผ่าน
-    $conn = mysqli_connect('localhost', DB_USER, DB_PASS, DB_NAME);
+    $conn = @mysqli_connect('127.0.0.1', DB_USER, DB_PASS, DB_NAME);
 }
 
 if (!$conn) {

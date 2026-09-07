@@ -21,9 +21,10 @@ RUN mkdir -p /var/run/mysqld /var/lib/mysql && \
     chown -R mysql:mysql /var/run/mysqld /var/lib/mysql && \
     mysql_install_db --user=mysql --datadir=/var/lib/mysql
 
-# Pre-initialize MariaDB database and import schema.sql with real recipes
+# Pre-initialize MariaDB database, configure root permissions, and import schema.sql
 RUN mysqld_safe --user=mysql --datadir='/var/lib/mysql' & \
     sleep 4 && \
+    mysql -u root -e "GRANT ALL PRIVILEGES ON *.* TO 'root'@'%' IDENTIFIED BY '' WITH GRANT OPTION; GRANT ALL PRIVILEGES ON *.* TO 'root'@'localhost' IDENTIFIED BY '' WITH GRANT OPTION; FLUSH PRIVILEGES;" && \
     mysql -u root -e "CREATE DATABASE IF NOT EXISTS food_api CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;" && \
     mysql -u root food_api < /var/www/html/schema.sql
 

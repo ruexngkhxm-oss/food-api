@@ -22,7 +22,7 @@ if ($recipeId <= 0) {
     send_response(400, ['success' => false, 'message' => 'กรุณาระบุ recipe_id']);
 }
 
-$stmt = mysqli_prepare($conn, "
+$stmt = db_prepare($conn, "
     SELECT rr.id, rr.recipe_id, rr.parent_id, rr.rating, rr.comment, rr.created_at,
            u.id AS user_id, u.full_name, u.avatar_url, u.role
     FROM recipe_reviews rr
@@ -30,14 +30,14 @@ $stmt = mysqli_prepare($conn, "
     WHERE rr.recipe_id = ?
     ORDER BY rr.created_at ASC, rr.id ASC
 ");
-mysqli_stmt_bind_param($stmt, 'i', $recipeId);
-mysqli_stmt_execute($stmt);
-$result = mysqli_stmt_get_result($stmt);
+db_bind_param($stmt, 'i', $recipeId);
+db_execute($stmt);
+$result = db_get_result($stmt);
 
 $topLevelComments = [];
 $repliesMap = [];
 
-while ($row = mysqli_fetch_assoc($result)) {
+while ($row = db_fetch_assoc($result)) {
     $c = [
         'id'         => (int) $row['id'],
         'recipe_id'  => (int) $row['recipe_id'],
@@ -60,7 +60,7 @@ while ($row = mysqli_fetch_assoc($result)) {
         $repliesMap[$c['parent_id']][] = $c;
     }
 }
-mysqli_stmt_close($stmt);
+db_stmt_close($stmt);
 
 // ประกบการตอบกลับย่อยใส่ topLevelComments
 foreach ($topLevelComments as $id => &$topComment) {
@@ -71,32 +71,33 @@ foreach ($topLevelComments as $id => &$topComment) {
 unset($topComment);
 
 // คำนวณคะแนนดาวเฉลี่ยสำหรับสูตรนี้
-$avgStmt = mysqli_prepare($conn, "
+$avgStmt = db_prepare($conn, "
     SELECT ROUND(AVG(rating), 1) AS avg_rating, COUNT(rating) AS rating_count
     FROM recipe_reviews
     WHERE recipe_id = ? AND rating IS NOT NULL
 ");
-mysqli_stmt_bind_param($avgStmt, 'i', $recipeId);
-mysqli_stmt_execute($avgStmt);
-$avgRow = mysqli_fetch_assoc(mysqli_stmt_get_result($avgStmt));
-mysqli_stmt_close($avgStmt);
+db_bind_param($avgStmt, 'i', $recipeId);
+db_execute($avgStmt);
+$avgRes = db_get_result($avgStmt);
+$avgRow = db_fetch_assoc($avgRes);
+db_stmt_close($avgStmt);
 
-$avgRating   = $avgRow['avg_rating'] !== null ? (float) $avgRow['avg_rating'] : 0.0;
+$avgRating   = ($avgRow && $avgRow['avg_rating'] !== null) ? (float) $avgRow['avg_rating'] : 0.0;
 $ratingCount = (int) ($avgRow['rating_count'] ?? 0);
 
 // ตรวจสอบว่าผู้ใช้ปัจจุบันเคยให้ดาวสูตรนี้ไปแล้วหรือยัง
 $userHasRated = false;
 $userRating   = null;
 if ($userId > 0) {
-    $userRateStmt = mysqli_prepare($conn, "SELECT rating FROM recipe_reviews WHERE recipe_id = ? AND user_id = ? AND rating IS NOT NULL LIMIT 1");
-    mysqli_stmt_bind_param($userRateStmt, 'ii', $recipeId, $userId);
-    mysqli_stmt_execute($userRateStmt);
-    $userRateRes = mysqli_stmt_get_result($userRateStmt);
-    if ($userRateRow = mysqli_fetch_assoc($userRateRes)) {
+    $userRateStmt = db_prepare($conn, "SELECT rating FROM recipe_reviews WHERE recipe_id = ? AND user_id = ? AND rating IS NOT NULL LIMIT 1");
+    db_bind_param($userRateStmt, 'ii', $recipeId, $userId);
+    db_execute($userRateStmt);
+    $userRateRes = db_get_result($userRateStmt);
+    if ($userRateRow = db_fetch_assoc($userRateRes)) {
         $userHasRated = true;
         $userRating   = (int) $userRateRow['rating'];
     }
-    mysqli_stmt_close($userRateStmt);
+    db_stmt_close($userRateStmt);
 }
 
 send_response(200, [
@@ -109,4 +110,5 @@ send_response(200, [
     'comments'       => array_values($topLevelComments),
 ]);
 
-mysqli_close($conn);
+db_close($conn);
+?>

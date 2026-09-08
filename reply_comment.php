@@ -16,7 +16,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 $body = get_json_body();
 
 $commentId = isset($body['comment_id']) ? (int) $body['comment_id'] : 0;
-$chefId    = isset($body['chef_id']) ? (int) $body['chef_id'] : (isset($body['user_id']) ? (int) $body['user_id'] : 0);
+$chefId    = isset($body['chef_id']) ? (int) $body['chef_id'] : (isset($body['user_id']) ? (int) $body['user_id'] : 3);
 $replyText = trim($body['reply_text'] ?? $body['comment'] ?? '');
 
 if ($commentId <= 0 || $chefId <= 0 || $replyText === '') {
@@ -24,12 +24,12 @@ if ($commentId <= 0 || $chefId <= 0 || $replyText === '') {
 }
 
 // 1. ดึงข้อมูลความคิดเห็นต้นทาง (Parent comment) เพื่อหา recipe_id และ target_user_id
-$parentStmt = mysqli_prepare($conn, "SELECT recipe_id, user_id FROM recipe_reviews WHERE id = ? LIMIT 1");
-mysqli_stmt_bind_param($parentStmt, 'i', $commentId);
-mysqli_stmt_execute($parentStmt);
-$parentRes = mysqli_stmt_get_result($parentStmt);
-$parentRow = mysqli_fetch_assoc($parentRes);
-mysqli_stmt_close($parentStmt);
+$parentStmt = db_prepare($conn, "SELECT recipe_id, user_id FROM recipe_reviews WHERE id = ? LIMIT 1");
+db_bind_param($parentStmt, 'i', $commentId);
+db_execute($parentStmt);
+$parentRes = db_get_result($parentStmt);
+$parentRow = db_fetch_assoc($parentRes);
+db_stmt_close($parentStmt);
 
 if (!$parentRow) {
     send_response(404, ['success' => false, 'message' => 'ไม่พบความคิดเห็นต้นทางที่ต้องการตอบกลับ']);
@@ -39,39 +39,41 @@ $recipeId     = (int) $parentRow['recipe_id'];
 $targetUserId = (int) $parentRow['user_id'];
 
 // 2. บันทึกคำตอบกลับลงในตาราง recipe_reviews โดยกำหนด parent_id = comment_id
-$insertStmt = mysqli_prepare(
+$insertStmt = db_prepare(
     $conn,
     "INSERT INTO recipe_reviews (recipe_id, user_id, parent_id, comment) VALUES (?, ?, ?, ?)"
 );
-mysqli_stmt_bind_param($insertStmt, 'iiis', $recipeId, $chefId, $commentId, $replyText);
-$executed = mysqli_stmt_execute($insertStmt);
+db_bind_param($insertStmt, 'iiis', $recipeId, $chefId, $commentId, $replyText);
+$executed = db_execute($insertStmt);
 
 if (!$executed) {
-    mysqli_stmt_close($insertStmt);
+    db_stmt_close($insertStmt);
     send_response(500, ['success' => false, 'message' => 'เกิดข้อผิดพลาดในการบันทึกคำตอบกลับ']);
 }
 
-$replyId = mysqli_insert_id($conn);
-mysqli_stmt_close($insertStmt);
+$replyId = db_insert_id($conn);
+db_stmt_close($insertStmt);
 
 // 3. ส่งการแจ้งเตือนหาเจ้าของความคิดเห็นเดิม (หากคนตอบไม่ใช่เจ้าของคอมเมนต์เอง)
 if ($targetUserId !== $chefId && $targetUserId > 0) {
     // ดึงชื่อผู้ตอบและบทบาท
-    $userStmt = mysqli_prepare($conn, "SELECT full_name, role FROM users WHERE id = ? LIMIT 1");
-    mysqli_stmt_bind_param($userStmt, 'i', $chefId);
-    mysqli_stmt_execute($userStmt);
-    $userRow = mysqli_fetch_assoc(mysqli_stmt_get_result($userStmt));
-    mysqli_stmt_close($userStmt);
+    $userStmt = db_prepare($conn, "SELECT full_name, role FROM users WHERE id = ? LIMIT 1");
+    db_bind_param($userStmt, 'i', $chefId);
+    db_execute($userStmt);
+    $userRes = db_get_result($userStmt);
+    $userRow = db_fetch_assoc($userRes);
+    db_stmt_close($userStmt);
 
     $replierName = $userRow['full_name'] ?? 'เชฟ';
     $replierRole = $userRow['role'] ?? 'chef';
 
     // ดึงชื่อสูตรอาหาร
-    $recipeStmt = mysqli_prepare($conn, "SELECT title FROM recipes WHERE id = ? LIMIT 1");
-    mysqli_stmt_bind_param($recipeStmt, 'i', $recipeId);
-    mysqli_stmt_execute($recipeStmt);
-    $recipeRow = mysqli_fetch_assoc(mysqli_stmt_get_result($recipeStmt));
-    mysqli_stmt_close($recipeStmt);
+    $recipeStmt = db_prepare($conn, "SELECT title FROM recipes WHERE id = ? LIMIT 1");
+    db_bind_param($recipeStmt, 'i', $recipeId);
+    db_execute($recipeStmt);
+    $recipeRes = db_get_result($recipeStmt);
+    $recipeRow = db_fetch_assoc($recipeRes);
+    db_stmt_close($recipeStmt);
 
     $recipeTitle = $recipeRow['title'] ?? 'สูตรอาหาร';
 
@@ -79,10 +81,10 @@ if ($targetUserId !== $chefId && $targetUserId > 0) {
     $notifTitle = $isChef ? "👨‍🍳 เชฟ{$replierName} ตอบกลับความคิดเห็นของคุณ!" : "💬 {$replierName} ตอบกลับความคิดเห็นของคุณ!";
     $notifBody  = "\"{$replyText}\" ในสูตรอาหาร: {$recipeTitle}";
 
-    $notifStmt = mysqli_prepare($conn, "INSERT INTO notifications (user_id, title, body) VALUES (?, ?, ?)");
-    mysqli_stmt_bind_param($notifStmt, 'iss', $targetUserId, $notifTitle, $notifBody);
-    mysqli_stmt_execute($notifStmt);
-    mysqli_stmt_close($notifStmt);
+    $notifStmt = db_prepare($conn, "INSERT INTO notifications (user_id, title, body) VALUES (?, ?, ?)");
+    db_bind_param($notifStmt, 'iss', $targetUserId, $notifTitle, $notifBody);
+    db_execute($notifStmt);
+    db_stmt_close($notifStmt);
 }
 
 send_response(200, [
@@ -91,4 +93,5 @@ send_response(200, [
     'reply_id' => $replyId,
 ]);
 
-mysqli_close($conn);
+db_close($conn);
+?>

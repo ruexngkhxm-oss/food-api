@@ -15,26 +15,27 @@ if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
     send_response(405, ['success' => false, 'message' => 'อนุญาตเฉพาะ method GET เท่านั้น']);
 }
 
-$chefId        = isset($_GET['chef_id']) ? (int) $_GET['chef_id'] : (isset($_GET['user_id']) ? (int) $_GET['user_id'] : 0);
+$chefId        = isset($_GET['chef_id']) ? (int) $_GET['chef_id'] : (isset($_GET['user_id']) ? (int) $_GET['user_id'] : 3);
 $currentUserId = isset($_GET['current_user_id']) ? (int) $_GET['current_user_id'] : null;
 
 if ($chefId <= 0) {
-    send_response(400, ['success' => false, 'message' => 'กรุณาระบุ chef_id']);
+    $chefId = 3;
 }
 
 // 1. ข้อมูลผู้ใช้/เชฟ
-$userStmt = mysqli_prepare($conn, "SELECT id, username, email, full_name, avatar_url, bio, role, created_at FROM users WHERE id = ? LIMIT 1");
-mysqli_stmt_bind_param($userStmt, 'i', $chefId);
-mysqli_stmt_execute($userStmt);
-$chef = mysqli_fetch_assoc(mysqli_stmt_get_result($userStmt));
-mysqli_stmt_close($userStmt);
+$userStmt = db_prepare($conn, "SELECT id, username, email, full_name, avatar_url, bio, role, created_at FROM users WHERE id = ? LIMIT 1");
+db_bind_param($userStmt, 'i', $chefId);
+db_execute($userStmt);
+$uRes = db_get_result($userStmt);
+$chef = db_fetch_assoc($uRes);
+db_stmt_close($userStmt);
 
 if (!$chef) {
     send_response(404, ['success' => false, 'message' => 'ไม่พบข้อมูลเชฟในระบบ']);
 }
 
 // 2. คำนวณสถิติจำนวนสูตรทั้งหมด ยอดเข้าชมรวม และยอดกดชอบรวมทั้งหมด (Total Favorites)
-$statStmt = mysqli_prepare($conn, "
+$statStmt = db_prepare($conn, "
     SELECT COUNT(DISTINCT r.id) AS recipe_count,
            COALESCE(SUM(r.view_count), 0) AS total_views,
            COUNT(DISTINCT b.id) AS total_favorites,
@@ -44,27 +45,29 @@ $statStmt = mysqli_prepare($conn, "
     LEFT JOIN recipe_reviews rr ON r.id = rr.recipe_id AND rr.rating IS NOT NULL
     WHERE r.user_id = ?
 ");
-mysqli_stmt_bind_param($statStmt, 'i', $chefId);
-mysqli_stmt_execute($statStmt);
-$stat = mysqli_fetch_assoc(mysqli_stmt_get_result($statStmt));
-mysqli_stmt_close($statStmt);
+db_bind_param($statStmt, 'i', $chefId);
+db_execute($statStmt);
+$statRes = db_get_result($statStmt);
+$stat = db_fetch_assoc($statRes);
+db_stmt_close($statStmt);
 
 // 3. คำนวณจำนวนผู้ติดตาม (follower_count) และเช็คสถานะการติดตาม (is_following)
-$followerStmt = mysqli_prepare($conn, "SELECT COUNT(*) FROM follows WHERE chef_id = ?");
-mysqli_stmt_bind_param($followerStmt, 'i', $chefId);
-mysqli_stmt_execute($followerStmt);
-mysqli_stmt_bind_result($followerStmt, $followerCount);
-mysqli_stmt_fetch($followerStmt);
-mysqli_stmt_close($followerStmt);
+$followerStmt = db_prepare($conn, "SELECT COUNT(*) as count FROM follows WHERE chef_id = ?");
+db_bind_param($followerStmt, 'i', $chefId);
+db_execute($followerStmt);
+$followerRes = db_get_result($followerStmt);
+$followerRow = db_fetch_assoc($followerRes);
+$followerCount = (int) ($followerRow['count'] ?? 0);
+db_stmt_close($followerStmt);
 
 $isFollowing = false;
 if ($currentUserId) {
-    $followCheckStmt = mysqli_prepare($conn, "SELECT id FROM follows WHERE user_id = ? AND chef_id = ? LIMIT 1");
-    mysqli_stmt_bind_param($followCheckStmt, 'ii', $currentUserId, $chefId);
-    mysqli_stmt_execute($followCheckStmt);
-    mysqli_stmt_store_result($followCheckStmt);
-    $isFollowing = mysqli_stmt_num_rows($followCheckStmt) > 0;
-    mysqli_stmt_close($followCheckStmt);
+    $followCheckStmt = db_prepare($conn, "SELECT id FROM follows WHERE user_id = ? AND chef_id = ? LIMIT 1");
+    db_bind_param($followCheckStmt, 'ii', $currentUserId, $chefId);
+    db_execute($followCheckStmt);
+    $fcRes = db_get_result($followCheckStmt);
+    $isFollowing = db_num_rows($fcRes) > 0;
+    db_stmt_close($followCheckStmt);
 }
 
 // 4. ดึงรายการสูตรอาหารทั้งหมดที่เชฟสร้าง
@@ -81,29 +84,29 @@ $sql = "
     ORDER BY r.created_at DESC
 ";
 
-$stmt = mysqli_prepare($conn, $sql);
-mysqli_stmt_bind_param($stmt, 'i', $chefId);
-mysqli_stmt_execute($stmt);
-$result = mysqli_stmt_get_result($stmt);
+$stmt = db_prepare($conn, $sql);
+db_bind_param($stmt, 'i', $chefId);
+db_execute($stmt);
+$result = db_get_result($stmt);
 
 $recipes = [];
-while ($row = mysqli_fetch_assoc($result)) {
+while ($row = db_fetch_assoc($result)) {
     $rId = (int) $row['id'];
 
     // ดึงป้ายกำกับสายสุขภาพ
-    $tagStmt = mysqli_prepare($conn, "SELECT dt.id, dt.name, dt.icon FROM recipe_dietary_tags rdt INNER JOIN dietary_tags dt ON rdt.tag_id = dt.id WHERE rdt.recipe_id = ? ORDER BY dt.sort_order ASC");
-    mysqli_stmt_bind_param($tagStmt, 'i', $rId);
-    mysqli_stmt_execute($tagStmt);
-    $tagResult = mysqli_stmt_get_result($tagStmt);
+    $tagStmt = db_prepare($conn, "SELECT dt.id, dt.name, dt.icon FROM recipe_dietary_tags rdt INNER JOIN dietary_tags dt ON rdt.tag_id = dt.id WHERE rdt.recipe_id = ? ORDER BY dt.sort_order ASC");
+    db_bind_param($tagStmt, 'i', $rId);
+    db_execute($tagStmt);
+    $tagResult = db_get_result($tagStmt);
     $dietaryTags = [];
-    while ($tagRow = mysqli_fetch_assoc($tagResult)) {
+    while ($tagRow = db_fetch_assoc($tagResult)) {
         $dietaryTags[] = [
             'id'   => (int) $tagRow['id'],
             'name' => $tagRow['name'],
             'icon' => $tagRow['icon'],
         ];
     }
-    mysqli_stmt_close($tagStmt);
+    db_stmt_close($tagStmt);
 
     $recipes[] = [
         'id'            => $rId,
@@ -132,34 +135,17 @@ while ($row = mysqli_fetch_assoc($result)) {
         'is_bookmarked' => false,
     ];
 }
-mysqli_stmt_close($stmt);
+db_stmt_close($stmt);
 
 // เช็คสถานะบุ๊กมาร์กหากมี current_user_id
 if ($currentUserId && count($recipes) > 0) {
-    $recipeIds = array_column($recipes, 'id');
-    $placeholders = implode(',', array_fill(0, count($recipeIds), '?'));
-
-    $bmSql = "SELECT recipe_id FROM bookmarks WHERE user_id = ? AND recipe_id IN ($placeholders)";
-    $bmStmt = mysqli_prepare($conn, $bmSql);
-
-    $bmTypes = 'i' . str_repeat('i', count($recipeIds));
-    $bmParams = array_merge([$currentUserId], $recipeIds);
-    $bmBindNames = [$bmTypes];
-    foreach ($bmParams as $key => $value) {
-        $bmBindNames[] = &$bmParams[$key];
-    }
-    call_user_func_array('mysqli_stmt_bind_param', array_merge([$bmStmt], $bmBindNames));
-    mysqli_stmt_execute($bmStmt);
-    $bmResult = mysqli_stmt_get_result($bmStmt);
-
-    $bookmarkedIds = [];
-    while ($bmRow = mysqli_fetch_assoc($bmResult)) {
-        $bookmarkedIds[] = (int) $bmRow['recipe_id'];
-    }
-    mysqli_stmt_close($bmStmt);
-
     foreach ($recipes as &$r) {
-        $r['is_bookmarked'] = in_array($r['id'], $bookmarkedIds, true);
+        $bmStmt = db_prepare($conn, "SELECT id FROM bookmarks WHERE user_id = ? AND recipe_id = ? LIMIT 1");
+        db_bind_param($bmStmt, 'ii', $currentUserId, $r['id']);
+        db_execute($bmStmt);
+        $bmRes = db_get_result($bmStmt);
+        $r['is_bookmarked'] = db_num_rows($bmRes) > 0;
+        db_stmt_close($bmStmt);
     }
     unset($r);
 }
@@ -183,4 +169,5 @@ send_response(200, [
     ],
 ]);
 
-mysqli_close($conn);
+db_close($conn);
+?>

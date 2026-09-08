@@ -22,7 +22,7 @@ function getApiUrl() {
     if (!window.location.hostname || window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1" || window.location.protocol === "file:") {
         return "http://127.0.0.1:8000";
     }
-    return DEFAULT_API_URL;
+    return window.location.origin || DEFAULT_API_URL;
 }
 
 function setApiUrl(url) {

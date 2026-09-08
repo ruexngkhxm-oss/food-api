@@ -174,6 +174,11 @@ header('Content-Type: text/html; charset=utf-8');
             <span class="pulse"></span>
             Render Server Online & Ready (SQLite/MySQL Engine)
         </div>
+        <div style="margin-top: 20px;">
+            <a href="chef_web/index.html" style="display: inline-flex; align-items: center; gap: 8px; background: linear-gradient(135deg, #FF6B35, #E85A24); color: #FFFFFF; text-decoration: none; padding: 12px 24px; border-radius: 14px; font-weight: 600; font-size: 15px; box-shadow: 0 4px 15px rgba(255, 107, 53, 0.4); transition: transform 0.2s;">
+                👨‍🍳 เปิดใช้งานระบบ Chef Web Portal (คลิกเข้าหน้าจัดการสูตรอาหาร) ➔
+            </a>
+        </div>
     </div>
 
     <div style="font-weight: 600; font-size: 16px; color: #FFFFFF; margin-bottom: 12px;">📡 รายการ REST API Endpoints พร้อมใช้งาน:</div>

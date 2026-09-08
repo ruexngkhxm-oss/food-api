@@ -27,6 +27,9 @@ $conn = null;
 if (function_exists('mysqli_connect')) {
     try {
         $conn = @mysqli_connect(DB_HOST, DB_USER, DB_PASS, DB_NAME);
+        if ($conn) {
+            @mysqli_set_charset($conn, 'utf8mb4');
+        }
     } catch (Throwable $e) {
         $conn = false;
     }

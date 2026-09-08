@@ -101,7 +101,7 @@ if ($recipeId > 0) {
     );
     db_bind_param(
         $stmt,
-        'ssiiisisiii',
+        'ssiiisissii',
         $title,
         $description,
         $prepTime,

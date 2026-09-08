@@ -277,7 +277,7 @@ function showDashboard() {
 // Fetch Chef Analytics
 async function loadChefAnalytics() {
     try {
-        const response = await fetch(`${getApiUrl()}/get_chef_analytics.php?chef_id=${currentUser.id}`);
+        const response = await fetch(`${getApiUrl()}/get_chef_analytics.php?chef_id=${currentUser.id}&_t=${Date.now()}`);
         const data = await response.json();
         if (data.success && data.analytics) {
             const a = data.analytics;
@@ -303,7 +303,7 @@ async function loadChefRecipes() {
     grid.innerHTML = Array(3).fill(0).map(() => `<div class="skeleton-card"></div>`).join("");
 
     try {
-        const response = await fetch(`${getApiUrl()}/get_chef_recipes.php?user_id=${currentUser.id}`);
+        const response = await fetch(`${getApiUrl()}/get_chef_recipes.php?user_id=${currentUser.id}&_t=${Date.now()}`);
         const data = await response.json();
 
         if (data.recipes && data.recipes.length > 0) {
@@ -446,7 +446,7 @@ async function openCommentsModal(event, recipeId, recipeTitle) {
     document.getElementById("commentsModal").classList.remove("hidden");
 
     try {
-        const response = await fetch(`${getApiUrl()}/get_comments.php?recipe_id=${recipeId}`);
+        const response = await fetch(`${getApiUrl()}/get_comments.php?recipe_id=${recipeId}&_t=${Date.now()}`);
         const data = await response.json();
 
         if (data.success && data.comments && data.comments.length > 0) {
@@ -724,8 +724,8 @@ async function confirmDeleteRecipe(event, recipeId, recipeTitle) {
 async function loadCategoriesAndTags() {
     try {
         const [catRes, tagRes] = await Promise.all([
-            fetch(`${getApiUrl()}/get_categories.php`),
-            fetch(`${getApiUrl()}/get_dietary_tags.php`)
+            fetch(`${getApiUrl()}/get_categories.php?_t=${Date.now()}`),
+            fetch(`${getApiUrl()}/get_dietary_tags.php?_t=${Date.now()}`)
         ]);
 
         const catData = await catRes.json();
@@ -809,7 +809,7 @@ async function openEditRecipeModal(event, recipeId) {
     let recipe = chefRecipesList.find(r => r.id == recipeId);
 
     try {
-        const response = await fetch(`${getApiUrl()}/get_recipe_detail.php?id=${recipeId}&recipe_id=${recipeId}`);
+        const response = await fetch(`${getApiUrl()}/get_recipe_detail.php?id=${recipeId}&recipe_id=${recipeId}&_t=${Date.now()}`);
         const data = await response.json();
         if (data.success && (data.recipe || data.data)) {
             recipe = data.recipe || data.data;

@@ -20,6 +20,11 @@ class SqliteDbStmt {
     public function execute() {
         try {
             $res = $this->stmt->execute($this->params);
+            if (!$res) {
+                $err = $this->stmt->errorInfo();
+                $this->error = $err[2] ?? 'SQLite execution failed';
+                return false;
+            }
             if ($this->stmt) {
                 $this->affectedRows = $this->stmt->rowCount();
                 if (strpos(strtoupper(trim($this->stmt->queryString)), 'SELECT') === 0) {
@@ -54,9 +59,16 @@ class SqliteDbConn {
     public $error = '';
 
     public function __construct($path) {
+        if (file_exists($path)) {
+            @chmod($path, 0777);
+        }
+        @chmod(dirname($path), 0777);
         $this->pdo = new PDO('sqlite:' . $path);
-        $this->pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_SILENT);
+        $this->pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         $this->pdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
+        try {
+            $this->pdo->exec('PRAGMA busy_timeout = 5000;');
+        } catch (Throwable $e) {}
     }
 
     public function prepare($sql) {

@@ -55,8 +55,12 @@ if (!$cRow) {
     send_response(404, ['success' => false, 'message' => 'ไม่พบความคิดเห็นนี้']);
 }
 
-// อนุญาตลบเฉพาะความคิดเห็นของตนเองเท่านั้น
-if ((int) $cRow['user_id'] !== $userId) {
+// อนุญาตลบหากเป็นความคิดเห็นของตนเอง หรือเป็นเจ้าของสูตร หรือเป็นเชฟ/แอดมิน
+$canDelete = ((int) $cRow['user_id'] === $userId) ||
+             (isset($cRow['recipe_author_id']) && (int) $cRow['recipe_author_id'] === $userId) ||
+             $isChefOrAdmin;
+
+if (!$canDelete) {
     send_response(403, ['success' => false, 'message' => 'คุณไม่มีสิทธิ์ลบความคิดเห็นของผู้อื่น สามารถลบได้เฉพาะความคิดเห็นของคุณเองเท่านั้น']);
 }
 

@@ -59,8 +59,12 @@ if (!$row) {
     send_response(404, ['success' => false, 'message' => 'ไม่พบความคิดเห็นนี้']);
 }
 
-// อนุญาตแก้ไขเฉพาะความคิดเห็นของตนเองเท่านั้น
-if ((int) $row['user_id'] !== $userId) {
+// อนุญาตแก้ไขหากเป็นความคิดเห็นของตนเอง หรือเป็นเจ้าของสูตร หรือเป็นเชฟ/แอดมิน
+$canEdit = ((int) $row['user_id'] === $userId) ||
+           (isset($row['recipe_author_id']) && (int) $row['recipe_author_id'] === $userId) ||
+           $isChefOrAdmin;
+
+if (!$canEdit) {
     send_response(403, ['success' => false, 'message' => 'คุณไม่มีสิทธิ์แก้ไขความคิดเห็นของผู้อื่น สามารถแก้ไขได้เฉพาะความคิดเห็นของคุณเองเท่านั้น']);
 }
 

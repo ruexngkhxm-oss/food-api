@@ -11,6 +11,8 @@ class SqliteDbStmt {
     public $currentIndex = 0;
     public $error = '';
 
+    public $affectedRows = 0;
+
     public function __construct($stmt) {
         $this->stmt = $stmt;
     }
@@ -18,9 +20,12 @@ class SqliteDbStmt {
     public function execute() {
         try {
             $res = $this->stmt->execute($this->params);
-            if ($this->stmt && strpos(strtoupper(trim($this->stmt->queryString)), 'SELECT') === 0) {
-                $this->resultRows = $this->stmt->fetchAll(PDO::FETCH_ASSOC);
-                $this->currentIndex = 0;
+            if ($this->stmt) {
+                $this->affectedRows = $this->stmt->rowCount();
+                if (strpos(strtoupper(trim($this->stmt->queryString)), 'SELECT') === 0) {
+                    $this->resultRows = $this->stmt->fetchAll(PDO::FETCH_ASSOC);
+                    $this->currentIndex = 0;
+                }
             }
             return $res;
         } catch (Throwable $e) {
@@ -189,6 +194,16 @@ function db_real_escape_string($conn, $string) {
     return addslashes($string);
 }
 
+function db_affected_rows($stmtObj) {
+    if ($stmtObj instanceof SqliteDbStmt) {
+        return $stmtObj->affectedRows;
+    }
+    if (function_exists('mysqli_stmt_affected_rows')) {
+        return @mysqli_stmt_affected_rows($stmtObj);
+    }
+    return 1;
+}
+
 function db_close($conn) {
     return true;
 }
@@ -214,6 +229,7 @@ if (!function_exists('mysqli_connect')) {
     function mysqli_stmt_get_result($stmtObj) { return db_get_result($stmtObj); }
     function mysqli_stmt_store_result($stmtObj) { return true; }
     function mysqli_stmt_num_rows($stmtObj) { return db_num_rows($stmtObj); }
+    function mysqli_stmt_affected_rows($stmtObj) { return db_affected_rows($stmtObj); }
     function mysqli_stmt_close($stmtObj) { return true; }
     function mysqli_fetch_assoc($stmtObj) { return db_fetch_assoc($stmtObj); }
     function mysqli_fetch_all($stmtObj, $mode = 1) {

@@ -15,7 +15,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
     send_response(405, ['success' => false, 'message' => 'อนุญาตเฉพาะ method GET เท่านั้น']);
 }
 
-$recipeId = isset($_GET['id']) ? (int) $_GET['id'] : 0;
+$recipeId = isset($_GET['id']) ? (int) $_GET['id'] : (isset($_GET['recipe_id']) ? (int) $_GET['recipe_id'] : 0);
 $userId   = isset($_GET['user_id']) ? (int) $_GET['user_id'] : null;
 
 if ($recipeId <= 0) {
@@ -23,13 +23,13 @@ if ($recipeId <= 0) {
 }
 
 // ----- 0. อัปเดตยอดเข้าชมเรียลไทม์ (view_count) -----
-$viewStmt = mysqli_prepare($conn, "UPDATE recipes SET view_count = view_count + 1 WHERE id = ?");
-mysqli_stmt_bind_param($viewStmt, 'i', $recipeId);
-mysqli_stmt_execute($viewStmt);
-mysqli_stmt_close($viewStmt);
+$viewStmt = db_prepare($conn, "UPDATE recipes SET view_count = view_count + 1 WHERE id = ?");
+db_bind_param($viewStmt, 'i', $recipeId);
+db_execute($viewStmt);
+db_stmt_close($viewStmt);
 
 // ----- ข้อมูลหลักของสูตร -----
-$stmt = mysqli_prepare($conn, "
+$stmt = db_prepare($conn, "
     SELECT r.id, r.title, r.description, r.image_url, r.prep_time, r.servings,
            r.is_featured, r.view_count, r.created_at, r.ingredients AS raw_ingredients, r.instructions AS raw_instructions,
            (SELECT COUNT(*) FROM bookmarks b WHERE b.recipe_id = r.id) AS favorite_count,
@@ -43,35 +43,35 @@ $stmt = mysqli_prepare($conn, "
     WHERE r.id = ?
     LIMIT 1
 ");
-mysqli_stmt_bind_param($stmt, 'i', $recipeId);
-mysqli_stmt_execute($stmt);
-$result = mysqli_stmt_get_result($stmt);
-$recipe = mysqli_fetch_assoc($result);
-mysqli_stmt_close($stmt);
+db_bind_param($stmt, 'i', $recipeId);
+db_execute($stmt);
+$result = db_get_result($stmt);
+$recipe = db_fetch_assoc($result);
+db_stmt_close($stmt);
 
 if (!$recipe) {
     send_response(404, ['success' => false, 'message' => 'ไม่พบสูตรอาหารนี้']);
 }
 
 // ----- วัตถุดิบ -----
-$ingStmt = mysqli_prepare($conn, "
+$ingStmt = db_prepare($conn, "
     SELECT ingredient_name, quantity
     FROM recipe_ingredients
     WHERE recipe_id = ?
     ORDER BY order_no ASC, id ASC
 ");
-mysqli_stmt_bind_param($ingStmt, 'i', $recipeId);
-mysqli_stmt_execute($ingStmt);
-$ingResult = mysqli_stmt_get_result($ingStmt);
+db_bind_param($ingStmt, 'i', $recipeId);
+db_execute($ingStmt);
+$ingResult = db_get_result($ingStmt);
 
 $ingredients = [];
-while ($row = mysqli_fetch_assoc($ingResult)) {
+while ($row = db_fetch_assoc($ingResult)) {
     $ingredients[] = [
         'name'     => $row['ingredient_name'],
         'quantity' => $row['quantity'],
     ];
 }
-mysqli_stmt_close($ingStmt);
+db_stmt_close($ingStmt);
 
 if (empty($ingredients) && !empty($recipe['raw_ingredients'])) {
     $decoded = json_decode($recipe['raw_ingredients'], true);
@@ -90,24 +90,24 @@ if (empty($ingredients) && !empty($recipe['raw_ingredients'])) {
 }
 
 // ----- ขั้นตอนการทำ -----
-$stepStmt = mysqli_prepare($conn, "
+$stepStmt = db_prepare($conn, "
     SELECT step_no, description
     FROM recipe_steps
     WHERE recipe_id = ?
     ORDER BY step_no ASC
 ");
-mysqli_stmt_bind_param($stepStmt, 'i', $recipeId);
-mysqli_stmt_execute($stepStmt);
-$stepResult = mysqli_stmt_get_result($stepStmt);
+db_bind_param($stepStmt, 'i', $recipeId);
+db_execute($stepStmt);
+$stepResult = db_get_result($stepStmt);
 
 $steps = [];
-while ($row = mysqli_fetch_assoc($stepResult)) {
+while ($row = db_fetch_assoc($stepResult)) {
     $steps[] = [
         'step_no'     => (int) $row['step_no'],
         'description' => $row['description'],
     ];
 }
-mysqli_stmt_close($stepStmt);
+db_stmt_close($stepStmt);
 
 if (empty($steps) && !empty($recipe['raw_instructions'])) {
     $decoded = json_decode($recipe['raw_instructions'], true);
@@ -131,36 +131,36 @@ if (empty($steps) && !empty($recipe['raw_instructions'])) {
 }
 
 // ----- ป้ายกำกับสายสุขภาพ -----
-$tagStmt = mysqli_prepare($conn, "
+$tagStmt = db_prepare($conn, "
     SELECT dt.id, dt.name, dt.icon
     FROM recipe_dietary_tags rdt
     INNER JOIN dietary_tags dt ON rdt.tag_id = dt.id
     WHERE rdt.recipe_id = ?
     ORDER BY dt.sort_order ASC
 ");
-mysqli_stmt_bind_param($tagStmt, 'i', $recipeId);
-mysqli_stmt_execute($tagStmt);
-$tagResult = mysqli_stmt_get_result($tagStmt);
+db_bind_param($tagStmt, 'i', $recipeId);
+db_execute($tagStmt);
+$tagResult = db_get_result($tagStmt);
 
 $dietaryTags = [];
-while ($row = mysqli_fetch_assoc($tagResult)) {
+while ($row = db_fetch_assoc($tagResult)) {
     $dietaryTags[] = [
         'id'   => (int) $row['id'],
         'name' => $row['name'],
         'icon' => $row['icon'],
     ];
 }
-mysqli_stmt_close($tagStmt);
+db_stmt_close($tagStmt);
 
 // ----- สถานะบุ๊กมาร์ก (ถ้ามี user_id) -----
 $isBookmarked = false;
 if ($userId) {
-    $bmStmt = mysqli_prepare($conn, "SELECT id FROM bookmarks WHERE user_id = ? AND recipe_id = ? LIMIT 1");
-    mysqli_stmt_bind_param($bmStmt, 'ii', $userId, $recipeId);
-    mysqli_stmt_execute($bmStmt);
-    mysqli_stmt_store_result($bmStmt);
-    $isBookmarked = mysqli_stmt_num_rows($bmStmt) > 0;
-    mysqli_stmt_close($bmStmt);
+    $bmStmt = db_prepare($conn, "SELECT id FROM bookmarks WHERE user_id = ? AND recipe_id = ? LIMIT 1");
+    db_bind_param($bmStmt, 'ii', $userId, $recipeId);
+    db_execute($bmStmt);
+    $bmResult = db_get_result($bmStmt);
+    $isBookmarked = db_num_rows($bmResult) > 0;
+    db_stmt_close($bmStmt);
 }
 
 send_response(200, [
@@ -196,4 +196,5 @@ send_response(200, [
     ],
 ]);
 
-mysqli_close($conn);
+db_close($conn);
+?>

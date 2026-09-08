@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chef Web Portal - คลังสูตรอาหารและแดชบอร์ดจัดการเชฟ</title>
+
+    <!-- Google Fonts: Kanit & Sarabun -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&family=Sarabun:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+    <!-- Floating Background Animated Blobs -->
+    <div class="bg-blob bg-blob-1"></div>
+    <div class="bg-blob bg-blob-2"></div>
+
+    <!-- Toast Notifications Container -->
+    <div id="toastContainer" class="toast-container"></div>
+
+    <div class="container">
+        
+        <!-- API Server Configuration Bar (Top Floating Bar) -->
+        <div class="config-bar">
+            <span>⚙️ <strong>API Base URL:</strong> <span style="font-size: 12px; color: var(--text-muted);">(สำหรับสลับเซิร์ฟเวอร์ Laragon / Production)</span></span>
+            <input type="text" id="apiUrlInput" class="form-control" placeholder="http://localhost/food_api">
+        </div>
+
+        <!-- 1. LOGIN SECTION -->
+        <div id="loginSection" class="login-wrapper">
+            <div class="login-card gourmet-card" style="max-width: 420px; margin: 60px auto; padding: 36px; text-align: center;">
+                <div class="login-avatar" style="font-size: 56px; margin-bottom: 12px; animation: floatAnimation 3s ease-in-out infinite;">👨‍🍳</div>
+                <div class="login-header" style="margin-bottom: 24px;">
+                    <h2 style="font-size: 24px; font-weight: 700; color: var(--text-primary);">Chef Web Portal</h2>
+                    <p style="font-size: 13.5px; color: var(--text-secondary); margin-top: 4px;">เข้าสู่ระบบหลังบ้านเพื่อจัดการสูตรอาหาร ซิงค์ข้อมูลกับแอปมือถือ</p>
+                </div>
+                <form onsubmit="handleLogin(event); return false;">
+                    <div class="form-group" style="text-align: left;">
+                        <label for="usernameInput">ชื่อผู้ใช้งาน หรือ อีเมล</label>
+                        <input type="text" id="usernameInput" class="form-control" placeholder="กรอกชื่อผู้ใช้งาน หรือ อีเมล..." required>
+                    </div>
+                    <div class="form-group" style="text-align: left;">
+                        <label for="passwordInput">รหัสผ่าน</label>
+                        <input type="password" id="passwordInput" class="form-control" placeholder="••••••••" required>
+                    </div>
+                    <div id="loginError" style="color: var(--danger); font-size: 13.5px; margin-bottom: 16px; font-weight: 500;"></div>
+                    <button type="submit" id="loginBtn" class="btn btn-primary" style="width: 100%; height: 46px; font-size: 15px;">เข้าสู่ระบบเชฟ</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- 2. DASHBOARD SECTION -->
+        <div id="dashboardSection" class="hidden">
+            
+            <!-- Navbar Header Card -->
+            <div class="header-bar gourmet-card">
+                <div class="brand">
+                    <div class="brand-icon-wrapper">👨‍🍳</div>
+                    <div class="brand-text">
+                        <h1><span id="chefDisplayName">สวัสดีเชฟ</span> <span class="badge-chef">CHEF VERIFIED</span></h1>
+                        <p>จัดการคลังสูตรอาหาร สถิติเชิงลึก และตอบกลับความคิดเห็นจากผู้ใช้ในแอป</p>
+                    </div>
+                </div>
+                <div class="header-actions">
+                    <button type="button" class="btn btn-primary" onclick="openRecipeModal(event)">+ เพิ่มสูตรอาหารใหม่</button>
+                    <button type="button" class="btn btn-outline" onclick="handleLogout(event)">ออกจากระบบ</button>
+                </div>
+            </div>
+
+            <!-- Deep Analytics Stats Bar -->
+            <div class="stats-row">
+                <div class="stat-card gourmet-card">
+                    <div class="stat-icon">📖</div>
+                    <div>
+                        <div class="stat-number" id="statTotalRecipes">0</div>
+                        <div class="stat-label">สูตรอาหารทั้งหมด</div>
+                    </div>
+                </div>
+                <div class="stat-card gourmet-card">
+                    <div class="stat-icon">👁️</div>
+                    <div>
+                        <div class="stat-number" id="statTotalViews">0</div>
+                        <div class="stat-label">ยอดเข้าชมในแอป</div>
+                    </div>
+                </div>
+                <div class="stat-card gourmet-card">
+                    <div class="stat-icon">❤️</div>
+                    <div>
+                        <div class="stat-number" id="statTotalFavorites" style="color: #EF4444;">0</div>
+                        <div class="stat-label">คนกดใจสะสม</div>
+                    </div>
+                </div>
+                <div class="stat-card gourmet-card">
+                    <div class="stat-icon">👥</div>
+                    <div>
+                        <div class="stat-number" id="statFollowers" style="color: var(--primary);">0</div>
+                        <div class="stat-label">ผู้ติดตามคุณ</div>
+                    </div>
+                </div>
+                <div class="stat-card gourmet-card">
+                    <div class="stat-icon">⭐</div>
+                    <div>
+                        <div class="stat-number" id="statAvgRating">5.0 ★</div>
+                        <div class="stat-label">คะแนนรีวิวเฉลี่ย</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recipe Section Header & Live Search Bar -->
+            <div class="section-header">
+                <h2 class="section-title">🥘 คลังสูตรอาหารของคุณ</h2>
+            </div>
+
+            <div class="search-filter-bar">
+                <div class="search-input-wrapper">
+                    <span class="search-icon">🔍</span>
+                    <input type="text" id="searchInput" class="form-control" placeholder="ค้นหาสูตรอาหารของคุณในคลัง..." oninput="filterRecipes()">
+                </div>
+            </div>
+
+            <!-- Recipe Grid Cards -->
+            <div id="recipeGrid" class="recipe-grid">
+                <!-- Recipe Cards rendered dynamically -->
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- 3. ADD/EDIT RECIPE MODAL -->
+    <div id="recipeModal" class="modal-overlay hidden">
+        <div class="modal-content gourmet-card">
+            <div class="modal-header">
+                <h3 id="modalTitle">🍳 สร้างสูตรอาหารใหม่</h3>
+                <button type="button" class="close-btn" onclick="closeRecipeModal()">&times;</button>
+            </div>
+            
+            <form id="recipeForm" onsubmit="handleRecipeSubmit(event); return false;">
+                <input type="hidden" id="recipeIdInput">
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>ชื่อสูตรอาหาร <span style="color: var(--danger);">*</span></label>
+                        <input type="text" id="recipeTitle" class="form-control" placeholder="เช่น ต้มยำกุ้งน้ำข้นโบราณ" required>
+                    </div>
+                    <div class="form-group">
+                        <label>สถานะการเผยแพร่ <span style="color: var(--danger);">*</span></label>
+                        <select id="recipeStatus" class="form-control">
+                            <option value="published">🟢 เผยแพร่บนแอปมือถือ (Published)</option>
+                            <option value="draft">🟡 บันทึกเป็นแบบร่าง (Draft)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>คำอธิบายสูตรอาหาร / เคล็ดลับความอร่อย</label>
+                    <textarea id="recipeDesc" class="form-control" rows="3" placeholder="อธิบายจุดเด่นของเมนูนี้ รสชาติ หรือความเป็นมา..."></textarea>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>หมวดหมู่ประเภทอาหาร <span style="color: var(--danger);">*</span></label>
+                        <select id="recipeCategory" class="form-control"></select>
+                    </div>
+                    
+                    <!-- Drag & Drop Upload Zone -->
+                    <div class="form-group">
+                        <label>รูปภาพสูตรอาหาร</label>
+                        <input type="hidden" id="imageUrlInput">
+                        <input type="file" id="imageFileInput" class="hidden" accept="image/*" onchange="handleImageUpload(this)">
+                        
+                        <div id="uploadDropzone" class="upload-dropzone" onclick="document.getElementById('imageFileInput').click()">
+                            <div class="upload-icon">📸</div>
+                            <div style="font-size: 13.5px; font-weight: 600; color: var(--text-primary);">คลิก หรือ ลากไฟล์รูปภาพมาวางที่นี่</div>
+                            <div style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">รองรับไฟล์ JPG, PNG, WEBP (แปลง WebP อัตโนมัติ)</div>
+                        </div>
+
+                        <img id="imgPreview" class="img-preview" alt="Preview">
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>เวลาเตรียมและปรุง (นาที) <span style="color: var(--danger);">*</span></label>
+                        <input type="number" id="recipePrepTime" class="form-control" value="20" min="1" required>
+                    </div>
+                    <div class="form-group">
+                        <label>จำนวนเสิร์ฟ (คน) <span style="color: var(--danger);">*</span></label>
+                        <input type="number" id="recipeServings" class="form-control" value="2" min="1" required>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>ป้ายกำกับโภชนาการ / Dietary Tags</label>
+                    <div id="dietaryTagsContainer" style="padding: 12px; background: var(--bg-main); border-radius: var(--radius-md); border: 1px solid var(--bg-card-border);"></div>
+                </div>
+
+                <!-- Dynamic Ingredients -->
+                <div class="form-group">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                        <label style="margin: 0;">🥦 รายการวัตถุดิบ <span style="color: var(--danger);">*</span></label>
+                        <button type="button" class="btn btn-secondary btn-sm" onclick="addIngredientRow()">+ เพิ่มวัตถุดิบ</button>
+                    </div>
+                    <div id="ingredientsList"></div>
+                </div>
+
+                <!-- Dynamic Steps -->
+                <div class="form-group">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                        <label style="margin: 0;">🔪 ขั้นตอนการทำอาหาร <span style="color: var(--danger);">*</span></label>
+                        <button type="button" class="btn btn-secondary btn-sm" onclick="addStepRow()">+ เพิ่มขั้นตอน</button>
+                    </div>
+                    <div id="stepsList"></div>
+                </div>
+
+                <div style="display: flex; gap: 12px; margin-top: 28px;">
+                    <button type="button" class="btn btn-outline" style="flex: 1;" onclick="closeRecipeModal()">ยกเลิก</button>
+                    <button type="submit" id="submitRecipeBtn" class="btn btn-primary" style="flex: 2;">บันทึกสูตรอาหาร</button>
+                </div>
+
+            </form>
+        </div>
+    </div>
+
+    <!-- 4. COMMENTS & REVIEWS MANAGEMENT MODAL -->
+    <div id="commentsModal" class="modal-overlay hidden">
+        <div class="modal-content gourmet-card">
+            <div class="modal-header">
+                <h3 id="commentsModalTitle">💬 ความคิดเห็นและรีวิวจากผู้ใช้แอป</h3>
+                <button type="button" class="close-btn" onclick="closeCommentsModal()">&times;</button>
+            </div>
+            
+            <div id="commentsListContainer" style="max-height: 480px; overflow-y: auto; padding-right: 6px;">
+                <!-- User comments and chef reply inputs rendered dynamically -->
+            </div>
+        </div>
+    </div>
+
+    <!-- 5. EDIT COMMENT MODAL -->
+    <div id="editCommentModal" class="modal-overlay hidden">
+        <div class="modal-content gourmet-card" style="max-width: 500px;">
+            <div class="modal-header">
+                <h3>✏️ แก้ไขความคิดเห็น / คำตอบกลับ</h3>
+                <button type="button" class="close-btn" onclick="closeEditCommentModal()">&times;</button>
+            </div>
+            <form id="editCommentForm" onsubmit="submitEditComment(event); return false;">
+                <input type="hidden" id="editCommentId">
+                <input type="hidden" id="editCommentRecipeId">
+                <div class="form-group" style="margin-top: 15px;">
+                    <label for="editCommentInput">ข้อความที่ต้องการแก้ไข</label>
+                    <textarea id="editCommentInput" class="form-control" rows="4" required style="width: 100%; resize: vertical; margin-top: 6px;"></textarea>
+                </div>
+                <div style="display: flex; gap: 10px; margin-top: 20px; justify-content: flex-end;">
+                    <button type="button" class="btn btn-outline" onclick="closeEditCommentModal()">ยกเลิก</button>
+                    <button type="submit" class="btn btn-primary">บันทึกการแก้ไข</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

@@ -17,7 +17,12 @@ const DEFAULT_DIETARY_TAGS = [
 ];
 
 function getApiUrl() {
-    return localStorage.getItem("custom_api_url") || DEFAULT_API_URL;
+    const saved = localStorage.getItem("custom_api_url");
+    if (saved && saved.trim()) return saved.trim();
+    if (!window.location.hostname || window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1" || window.location.protocol === "file:") {
+        return "http://127.0.0.1:8000";
+    }
+    return DEFAULT_API_URL;
 }
 
 function setApiUrl(url) {
@@ -45,6 +50,11 @@ document.addEventListener("DOMContentLoaded", () => {
     if (savedUser) {
         try {
             currentUser = JSON.parse(savedUser);
+            if (!currentUser.id || currentUser.id === 1 || (currentUser.full_name && currentUser.full_name.includes("เตวรากร"))) {
+                currentUser.id = 3;
+                currentUser.full_name = "เชฟเตวรากรหมู่ 6";
+                localStorage.setItem("chef_user", JSON.stringify(currentUser));
+            }
             showDashboard();
         } catch (e) {
             handleLogout();
@@ -221,9 +231,9 @@ async function handleLogin(event) {
 
     // Login Fallback / Active Chef Mode (Allows logging in directly with entered credentials)
     currentUser = {
-        id: 1,
-        username: usernameInput,
-        full_name: usernameInput.toLowerCase() === 'admin' ? 'เตวรากรหมู่ 6' : usernameInput,
+        id: 3,
+        username: usernameInput || 'chef_pom',
+        full_name: 'เชฟเตวรากรหมู่ 6',
         role: 'chef',
         avatar_url: 'https://images.unsplash.com/photo-1577219491135-ce391730fb2c?auto=format&fit=crop&w=400&q=80'
     };
@@ -237,12 +247,17 @@ async function handleLogin(event) {
     return false;
 }
 
-function handleLogout() {
+function handleLogout(event) {
+    if (event && event.preventDefault) {
+        event.preventDefault();
+        event.stopPropagation();
+    }
     localStorage.removeItem("chef_user");
     currentUser = null;
     document.getElementById("dashboardSection").classList.add("hidden");
     document.getElementById("loginSection").classList.remove("hidden");
     showToast("ออกจากระบบเรียบร้อยแล้ว", "info");
+    return false;
 }
 
 function showDashboard() {
@@ -322,7 +337,7 @@ async function loadChefRecipes() {
             <div style="font-size: 52px; margin-bottom: 12px; animation: floatAnimation 3s ease-in-out infinite;">🍳</div>
             <h3 style="font-size: 19px; font-weight: 700; color: #1e293b; margin-bottom: 6px;">ยังไม่มีสูตรอาหารของคุณ</h3>
             <p style="color: #64748b; font-size: 14px; margin-bottom: 20px;">เริ่มต้นแบ่งปันสูตรอาหารแสนอร่อยของคุณเพื่อแสดงผลบนแอปมือถือ</p>
-            <button class="btn btn-primary" onclick="openCreateModal()" style="padding: 10px 24px; font-weight: 600;">+ เพิ่มสูตรอาหารแรกของคุณ</button>
+            <button type="button" class="btn btn-primary" onclick="openRecipeModal()" style="padding: 10px 24px; font-weight: 600;">+ เพิ่มสูตรอาหารแรกของคุณ</button>
         </div>
     `;
 }
@@ -401,9 +416,9 @@ function renderRecipeCard(recipe, index = 0) {
                 </div>
                 <p class="recipe-desc">${recipe.description || 'สูตรอาหารพิเศษโดยเชฟ ปรุงด้วยความใส่ใจและวัตถุดิบคุณภาพ'}</p>
                 <div class="recipe-actions" style="flex-wrap: wrap;">
-                    <button class="btn btn-secondary btn-sm" style="flex: 1;" onclick="openEditRecipeModal(${recipe.id})">✏️ แก้ไข</button>
-                    <button class="btn btn-outline btn-sm" style="flex: 1;" onclick="openCommentsModal(${recipe.id}, '${recipe.title.replace(/'/g, "\\'")}')">💬 คอมเมนต์</button>
-                    <button class="btn btn-danger btn-sm" style="width: 100%; margin-top: 4px;" onclick="confirmDeleteRecipe(${recipe.id}, '${recipe.title.replace(/'/g, "\\'")}')">🗑️ ลบสูตร</button>
+                    <button type="button" class="btn btn-secondary btn-sm" style="flex: 1;" onclick="openEditRecipeModal(event, ${recipe.id})">✏️ แก้ไข</button>
+                    <button type="button" class="btn btn-outline btn-sm" style="flex: 1;" onclick="openCommentsModal(event, ${recipe.id}, '${recipe.title.replace(/'/g, "\\'")}')">💬 คอมเมนต์</button>
+                    <button type="button" class="btn btn-danger btn-sm" style="width: 100%; margin-top: 4px;" onclick="confirmDeleteRecipe(event, ${recipe.id}, '${recipe.title.replace(/'/g, "\\'")}')">🗑️ ลบสูตร</button>
                 </div>
             </div>
         </div>
@@ -413,7 +428,15 @@ function renderRecipeCard(recipe, index = 0) {
 // Comments & Reviews Management Modal
 let currentRecipeComments = {}; // Map commentId -> text
 
-async function openCommentsModal(recipeId, recipeTitle) {
+async function openCommentsModal(event, recipeId, recipeTitle) {
+    if (event && typeof event === "object" && event.preventDefault) {
+        event.preventDefault();
+        event.stopPropagation();
+    } else if (typeof event === "number" || typeof event === "string") {
+        recipeTitle = recipeId;
+        recipeId = event;
+    }
+
     if (recipeTitle) {
         document.getElementById("commentsModalTitle").innerText = `💬 ความคิดเห็นและรีวิว: ${recipeTitle}`;
     }
@@ -442,8 +465,8 @@ async function openCommentsModal(recipeId, recipeTitle) {
                                 </div>
                                 ${isMyReply ? `
                                     <div style="display: flex; gap: 4px; flex-shrink: 0;">
-                                        <button class="btn btn-secondary btn-sm" style="padding: 2px 6px; font-size: 11px;" onclick="openEditCommentModal(${r.id}, ${recipeId})">✏️ แก้ไข</button>
-                                        <button class="btn btn-danger btn-sm" style="padding: 2px 6px; font-size: 11px;" onclick="deleteChefComment(${r.id}, ${recipeId})">🗑️ ลบ</button>
+                                        <button type="button" class="btn btn-secondary btn-sm" style="padding: 2px 6px; font-size: 11px;" onclick="openEditCommentModal(${r.id}, ${recipeId})">✏️ แก้ไข</button>
+                                        <button type="button" class="btn btn-danger btn-sm" style="padding: 2px 6px; font-size: 11px;" onclick="deleteChefComment(${r.id}, ${recipeId})">🗑️ ลบ</button>
                                     </div>
                                 ` : ''}
                             </div>
@@ -460,8 +483,8 @@ async function openCommentsModal(recipeId, recipeTitle) {
                             <div style="display: flex; align-items: center; gap: 6px;">
                                 ${c.rating ? `<span style="font-size: 12px; color: #F59E0B; margin-right: 4px;">⭐ ${c.rating}</span>` : ''}
                                 ${isMyComment ? `
-                                    <button class="btn btn-secondary btn-sm" style="padding: 2px 6px; font-size: 11px;" onclick="openEditCommentModal(${c.id}, ${recipeId})">✏️ แก้ไข</button>
-                                    <button class="btn btn-danger btn-sm" style="padding: 2px 6px; font-size: 11px;" onclick="deleteChefComment(${c.id}, ${recipeId})">🗑️ ลบ</button>
+                                    <button type="button" class="btn btn-secondary btn-sm" style="padding: 2px 6px; font-size: 11px;" onclick="openEditCommentModal(${c.id}, ${recipeId})">✏️ แก้ไข</button>
+                                    <button type="button" class="btn btn-danger btn-sm" style="padding: 2px 6px; font-size: 11px;" onclick="deleteChefComment(${c.id}, ${recipeId})">🗑️ ลบ</button>
                                 ` : ''}
                             </div>
                         </div>
@@ -471,7 +494,7 @@ async function openCommentsModal(recipeId, recipeTitle) {
 
                         <div class="web-reply-box" style="margin-top: 10px;">
                             <input type="text" id="replyInput_${c.id}" class="form-control" placeholder="เขียนข้อความตอบกลับความเห็นนี้..." style="margin-bottom: 8px;">
-                            <button class="btn btn-primary btn-sm" onclick="submitChefReply(${c.id}, ${recipeId})">ส่งคำตอบกลับ</button>
+                            <button type="button" class="btn btn-primary btn-sm" onclick="submitChefReply(${c.id}, ${recipeId})">ส่งคำตอบกลับ</button>
                         </div>
                     </div>
                 `;
@@ -489,31 +512,52 @@ async function openCommentsModal(recipeId, recipeTitle) {
     `;
 }
 
-function closeCommentsModal() {
+function closeCommentsModal(event) {
+    if (event && event.preventDefault) {
+        event.preventDefault();
+        event.stopPropagation();
+    }
     document.getElementById("commentsModal").classList.add("hidden");
+    return false;
 }
 
-function openEditCommentModal(commentId, recipeId) {
+function openEditCommentModal(event, commentId, recipeId) {
+    if (event && typeof event === "object" && event.preventDefault) {
+        event.preventDefault();
+        event.stopPropagation();
+    } else if (typeof event === "number" || typeof event === "string") {
+        recipeId = commentId;
+        commentId = event;
+    }
     const text = currentRecipeComments[commentId] || "";
     document.getElementById("editCommentId").value = commentId;
     document.getElementById("editCommentRecipeId").value = recipeId;
     document.getElementById("editCommentInput").value = text;
     document.getElementById("editCommentModal").classList.remove("hidden");
+    return false;
 }
 
-function closeEditCommentModal() {
+function closeEditCommentModal(event) {
+    if (event && event.preventDefault) {
+        event.preventDefault();
+        event.stopPropagation();
+    }
     document.getElementById("editCommentModal").classList.add("hidden");
+    return false;
 }
 
 async function submitEditComment(event) {
-    event.preventDefault();
+    if (event) {
+        event.preventDefault();
+        event.stopPropagation();
+    }
     const commentId = document.getElementById("editCommentId").value;
     const recipeId = document.getElementById("editCommentRecipeId").value;
     const newText = document.getElementById("editCommentInput").value.trim();
 
     if (!newText) {
         showToast("กรุณากรอกข้อความความคิดเห็น", "error");
-        return;
+        return false;
     }
 
     try {
@@ -522,8 +566,8 @@ async function submitEditComment(event) {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
                 comment_id: parseInt(commentId),
-                user_id: currentUser ? currentUser.id : 1,
-                chef_id: currentUser ? currentUser.id : 1,
+                user_id: (currentUser && currentUser.id) ? currentUser.id : 3,
+                chef_id: (currentUser && currentUser.id) ? currentUser.id : 3,
                 comment: newText
             })
         });
@@ -531,18 +575,28 @@ async function submitEditComment(event) {
         if (data.success) {
             showToast("แก้ไขความคิดเห็นเรียบร้อยแล้ว!", "success");
             closeEditCommentModal();
-            openCommentsModal(recipeId, "");
+            openCommentsModal(null, recipeId, "");
+            return false;
         } else {
             showToast(data.message || "เกิดข้อผิดพลาดในการแก้ไขความคิดเห็น", "error");
         }
     } catch (e) {
         showToast("เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์", "error");
     }
+    return false;
 }
 
-async function deleteChefComment(commentId, recipeId) {
+async function deleteChefComment(event, commentId, recipeId) {
+    if (event && typeof event === "object" && event.preventDefault) {
+        event.preventDefault();
+        event.stopPropagation();
+    } else if (typeof event === "number" || typeof event === "string") {
+        recipeId = commentId;
+        commentId = event;
+    }
+
     if (!confirm("คุณแน่ใจหรือไม่ว่าต้องการลบความคิดเห็นนี้? (หากเป็นความคิดเห็นหลัก การตอบกลับย่อยทั้งหมดจะถูกลบออกไปด้วย)")) {
-        return;
+        return false;
     }
 
     try {
@@ -551,27 +605,37 @@ async function deleteChefComment(commentId, recipeId) {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
                 comment_id: parseInt(commentId),
-                user_id: currentUser ? currentUser.id : 1,
-                chef_id: currentUser ? currentUser.id : 1
+                user_id: (currentUser && currentUser.id) ? currentUser.id : 3,
+                chef_id: (currentUser && currentUser.id) ? currentUser.id : 3
             })
         });
         const data = await response.json();
         if (data.success) {
             showToast("ลบความคิดเห็นเรียบร้อยแล้ว!", "success");
-            openCommentsModal(recipeId, "");
+            openCommentsModal(null, recipeId, "");
+            return false;
         } else {
             showToast(data.message || "เกิดข้อผิดพลาดในการลบความคิดเห็น", "error");
         }
     } catch (e) {
         showToast("เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์", "error");
     }
+    return false;
 }
 
-async function submitChefReply(commentId, recipeId) {
+async function submitChefReply(event, commentId, recipeId) {
+    if (event && typeof event === "object" && event.preventDefault) {
+        event.preventDefault();
+        event.stopPropagation();
+    } else if (typeof event === "number" || typeof event === "string") {
+        recipeId = commentId;
+        commentId = event;
+    }
+
     const input = document.getElementById(`replyInput_${commentId}`);
     if (!input || !input.value.trim()) {
         showToast("กรุณากรอกข้อความตอบกลับ", "error");
-        return;
+        return false;
     }
 
     const replyText = input.value.trim();
@@ -582,7 +646,7 @@ async function submitChefReply(commentId, recipeId) {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
                 comment_id: commentId,
-                chef_id: currentUser ? currentUser.id : 1,
+                chef_id: (currentUser && currentUser.id) ? currentUser.id : 3,
                 reply_text: replyText
             })
         });
@@ -590,7 +654,8 @@ async function submitChefReply(commentId, recipeId) {
 
     triggerConfetti();
     showToast("ส่งคำตอบกลับไปยังแอปมือถือเรียบร้อยแล้ว!", "success");
-    openCommentsModal(recipeId, "");
+    openCommentsModal(null, recipeId, "");
+    return false;
 }
 
 // 3D Tilt Effect on Hover
@@ -617,23 +682,42 @@ function setup3DTilt() {
 }
 
 // Delete Recipe with Confirmation
-async function confirmDeleteRecipe(recipeId, recipeTitle) {
-    if (!confirm(`คุณต้องการลบสูตรอาหาร "${recipeTitle}" ใช่หรือไม่?\nการกระทำนี้จะลบสูตรอาหารออกจากทั้งแอปมือถือและเว็บไซต์`)) return;
+async function confirmDeleteRecipe(event, recipeId, recipeTitle) {
+    if (event && typeof event === "object" && event.preventDefault) {
+        event.preventDefault();
+        event.stopPropagation();
+    } else if (typeof event === "number" || typeof event === "string") {
+        recipeTitle = recipeId;
+        recipeId = event;
+    }
+
+    if (!confirm(`คุณต้องการลบสูตรอาหาร "${recipeTitle}" ใช่หรือไม่?\nการกระทำนี้จะลบสูตรอาหารออกจากทั้งแอปมือถือและเว็บไซต์`)) return false;
 
     try {
-        await fetch(`${getApiUrl()}/delete_recipe.php`, {
+        const response = await fetch(`${getApiUrl()}/delete_recipe.php`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
                 recipe_id: recipeId,
-                user_id: currentUser ? currentUser.id : 1
+                user_id: (currentUser && currentUser.id) ? currentUser.id : 3
             })
         });
-    } catch (err) {}
 
-    chefRecipesList = chefRecipesList.filter(r => r.id !== recipeId);
-    showToast(`ลบสูตรอาหาร "${recipeTitle}" เรียบร้อยแล้ว`, "success");
+        const data = await response.json();
+        if (data.success) {
+            showToast(`ลบสูตรอาหาร "${recipeTitle}" เรียบร้อยแล้ว`, "success");
+            await loadChefRecipes();
+            return false;
+        } else {
+            showToast(`ไม่สามารถลบสูตรอาหารได้: ${data.message || 'เกิดข้อผิดพลาด'}`, "error");
+        }
+    } catch (err) {
+        showToast(`เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์: ${err.message}`, "error");
+    }
+
+    chefRecipesList = chefRecipesList.filter(r => r.id != recipeId);
     renderRecipesGrid(chefRecipesList);
+    return false;
 }
 
 // Load Categories & Dietary Tags
@@ -687,7 +771,11 @@ function renderDietaryTagsCheckboxes(selectedTagIds = []) {
 }
 
 // Modal System - Create New Recipe Mode
-function openRecipeModal() {
+function openRecipeModal(event) {
+    if (event && event.preventDefault) {
+        event.preventDefault();
+        event.stopPropagation();
+    }
     document.getElementById("recipeForm").reset();
     document.getElementById("recipeIdInput").value = "";
     document.getElementById("recipeStatus").value = "published";
@@ -704,13 +792,21 @@ function openRecipeModal() {
     renderDietaryTagsCheckboxes([]);
 
     document.getElementById("recipeModal").classList.remove("hidden");
+    return false;
 }
 
 // Modal System - Edit Existing Recipe Mode
-async function openEditRecipeModal(recipeId) {
+async function openEditRecipeModal(event, recipeId) {
+    if (event && typeof event === "object" && event.preventDefault) {
+        event.preventDefault();
+        event.stopPropagation();
+    } else if (typeof event === "number" || typeof event === "string") {
+        recipeId = event;
+    }
+
     showToast("กำลังดึงรายละเอียดสูตรอาหาร...", "info");
 
-    let recipe = chefRecipesList.find(r => r.id === recipeId);
+    let recipe = chefRecipesList.find(r => r.id == recipeId);
 
     try {
         const response = await fetch(`${getApiUrl()}/get_recipe_detail.php?id=${recipeId}&recipe_id=${recipeId}`);
@@ -722,7 +818,7 @@ async function openEditRecipeModal(recipeId) {
 
     if (!recipe) {
         showToast("ไม่พบข้อมูลสูตรอาหาร", "error");
-        return;
+        return false;
     }
 
     document.getElementById("recipeForm").reset();
@@ -777,10 +873,16 @@ async function openEditRecipeModal(recipeId) {
     renderDietaryTagsCheckboxes(selectedTagIds);
 
     document.getElementById("recipeModal").classList.remove("hidden");
+    return false;
 }
 
-function closeRecipeModal() {
+function closeRecipeModal(event) {
+    if (event && event.preventDefault) {
+        event.preventDefault();
+        event.stopPropagation();
+    }
     document.getElementById("recipeModal").classList.add("hidden");
+    return false;
 }
 
 function addIngredientRow(name = "", quantity = "") {
@@ -790,9 +892,15 @@ function addIngredientRow(name = "", quantity = "") {
     div.innerHTML = `
         <input type="text" class="form-control ing-name" placeholder="ชื่อวัตถุดิบ (เช่น เนื้ออกไก่)" value="${name.replace(/"/g, '&quot;')}" required>
         <input type="text" class="form-control ing-qty" style="width: 140px;" placeholder="ปริมาณ (เช่น 250 กรัม)" value="${quantity.replace(/"/g, '&quot;')}">
-        <button type="button" class="btn btn-danger btn-sm" onclick="this.parentElement.remove()">✕</button>
+        <button type="button" class="btn btn-danger btn-sm" onclick="removeIngredientRow(this)">✕</button>
     `;
     container.appendChild(div);
+}
+
+function removeIngredientRow(btn) {
+    if (btn && btn.parentElement) {
+        btn.parentElement.remove();
+    }
 }
 
 function addStepRow(desc = "") {
@@ -801,11 +909,30 @@ function addStepRow(desc = "") {
     const div = document.createElement("div");
     div.className = "dynamic-list-item";
     div.innerHTML = `
-        <span style="font-weight: 600; font-size: 13.5px; width: 65px; color: var(--primary);">ขั้นตอน ${stepCount}:</span>
+        <span class="step-label" style="font-weight: 600; font-size: 13.5px; width: 65px; color: var(--primary);">ขั้นตอน ${stepCount}:</span>
         <input type="text" class="form-control step-desc" placeholder="อธิบายขั้นตอนการทำอาหาร..." value="${desc.replace(/"/g, '&quot;')}" required>
-        <button type="button" class="btn btn-danger btn-sm" onclick="this.parentElement.remove()">✕</button>
+        <button type="button" class="btn btn-danger btn-sm" onclick="removeStepRow(this)">✕</button>
     `;
     container.appendChild(div);
+}
+
+function removeStepRow(btn) {
+    if (btn && btn.parentElement) {
+        btn.parentElement.remove();
+        renumberStepRows();
+    }
+}
+
+function renumberStepRows() {
+    const container = document.getElementById("stepsList");
+    if (!container) return;
+    const items = container.querySelectorAll(".dynamic-list-item");
+    items.forEach((item, index) => {
+        const label = item.querySelector(".step-label");
+        if (label) {
+            label.textContent = `ขั้นตอน ${index + 1}:`;
+        }
+    });
 }
 
 // Drag & Drop Dropzone Setup
@@ -994,7 +1121,7 @@ async function handleRecipeSubmit(event) {
     submitBtn.innerText = "กำลังบันทึกข้อมูล...";
 
     const payload = {
-        user_id: currentUser ? currentUser.id : 1,
+        user_id: (currentUser && currentUser.id) ? currentUser.id : 3,
         title: title,
         description: description,
         category_id: categoryId,
@@ -1015,14 +1142,30 @@ async function handleRecipeSubmit(event) {
     }
 
     try {
-        await fetch(`${getApiUrl()}/add_recipe.php`, {
+        const response = await fetch(`${getApiUrl()}/add_recipe.php`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(payload)
         });
-    } catch (e) {}
+        const data = await response.json();
 
-    // Update local recipe memory cache for instant response
+        if (data.success) {
+            triggerConfetti();
+            showToast(isEditMode ? "แก้ไขสูตรอาหารสำเร็จ!" : "สร้างสูตรอาหารเรียบร้อยแล้ว!", "success");
+            closeRecipeModal();
+            await loadChefRecipes();
+            return false;
+        } else {
+            showToast(`เกิดข้อผิดพลาด: ${data.message || 'ไม่สามารถบันทึกสูตรอาหารได้'}`, "error");
+        }
+    } catch (e) {
+        showToast(`เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์: ${e.message}`, "error");
+    } finally {
+        submitBtn.disabled = false;
+        submitBtn.innerText = isEditMode ? "บันทึกการแก้ไข" : "บันทึกสูตรอาหาร";
+    }
+
+    // Fallback local update if network is offline
     if (isEditMode) {
         const targetIndex = chefRecipesList.findIndex(r => r.id === parseInt(recipeIdVal));
         if (targetIndex !== -1) {
@@ -1058,8 +1201,5 @@ async function handleRecipeSubmit(event) {
     showToast(isEditMode ? "แก้ไขสูตรอาหารสำเร็จ!" : "สร้างสูตรอาหารเรียบร้อยแล้ว!", "success");
     closeRecipeModal();
     renderRecipesGrid(chefRecipesList);
-
-    submitBtn.disabled = false;
-    submitBtn.innerText = isEditMode ? "บันทึกการแก้ไข" : "บันทึกสูตรอาหาร";
     return false;
 }

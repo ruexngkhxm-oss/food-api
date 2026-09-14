@@ -20,19 +20,19 @@ if ($userId <= 0) {
     send_response(400, ['success' => false, 'message' => 'กรุณาระบุ user_id']);
 }
 
-$stmt = mysqli_prepare($conn, "
+$stmt = db_prepare($conn, "
     SELECT id, title, body, is_read, created_at 
     FROM notifications 
     WHERE user_id = ? 
     ORDER BY created_at DESC, id DESC 
     LIMIT 50
 ");
-mysqli_stmt_bind_param($stmt, 'i', $userId);
-mysqli_stmt_execute($stmt);
-$result = mysqli_stmt_get_result($stmt);
+db_bind_param($stmt, 'i', $userId);
+db_execute($stmt);
+$result = db_get_result($stmt);
 
 $notifications = [];
-while ($row = mysqli_fetch_assoc($result)) {
+while ($row = db_fetch_assoc($result)) {
     $notifications[] = [
         'id'         => (int) $row['id'],
         'title'      => $row['title'],
@@ -41,7 +41,7 @@ while ($row = mysqli_fetch_assoc($result)) {
         'created_at' => $row['created_at'],
     ];
 }
-mysqli_stmt_close($stmt);
+db_stmt_close($stmt);
 
 send_response(200, [
     'success'       => true,
@@ -49,4 +49,5 @@ send_response(200, [
     'notifications' => $notifications,
 ]);
 
-mysqli_close($conn);
+db_close($conn);
+?>

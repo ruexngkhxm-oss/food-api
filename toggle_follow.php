@@ -27,51 +27,53 @@ if ($userId === $chefId) {
 }
 
 // ตรวจสอบว่าติดตามอยู่แล้วหรือไม่
-$checkStmt = mysqli_prepare($conn, 'SELECT id FROM follows WHERE user_id = ? AND chef_id = ? LIMIT 1');
-mysqli_stmt_bind_param($checkStmt, 'ii', $userId, $chefId);
-mysqli_stmt_execute($checkStmt);
-mysqli_stmt_store_result($checkStmt);
+$checkStmt = db_prepare($conn, 'SELECT id FROM follows WHERE user_id = ? AND chef_id = ? LIMIT 1');
+db_bind_param($checkStmt, 'ii', $userId, $chefId);
+db_execute($checkStmt);
+$checkRes = db_get_result($checkStmt);
 
 $isFollowing = false;
 $message = '';
 
-if (mysqli_stmt_num_rows($checkStmt) > 0) {
+if (db_num_rows($checkRes) > 0) {
     // มีอยู่แล้ว -> ยกเลิกการติดตาม (Unfollow)
-    mysqli_stmt_close($checkStmt);
+    db_stmt_close($checkStmt);
 
-    $deleteStmt = mysqli_prepare($conn, 'DELETE FROM follows WHERE user_id = ? AND chef_id = ?');
-    mysqli_stmt_bind_param($deleteStmt, 'ii', $userId, $chefId);
-    mysqli_stmt_execute($deleteStmt);
-    mysqli_stmt_close($deleteStmt);
+    $deleteStmt = db_prepare($conn, 'DELETE FROM follows WHERE user_id = ? AND chef_id = ?');
+    db_bind_param($deleteStmt, 'ii', $userId, $chefId);
+    db_execute($deleteStmt);
+    db_stmt_close($deleteStmt);
 
     $isFollowing = false;
     $message = 'ยกเลิกการติดตามเชฟเรียบร้อยแล้ว';
 } else {
     // ยังไม่มี -> เริ่มติดตาม (Follow)
-    mysqli_stmt_close($checkStmt);
+    db_stmt_close($checkStmt);
 
-    $insertStmt = mysqli_prepare($conn, 'INSERT INTO follows (user_id, chef_id) VALUES (?, ?)');
-    mysqli_stmt_bind_param($insertStmt, 'ii', $userId, $chefId);
-    mysqli_stmt_execute($insertStmt);
-    mysqli_stmt_close($insertStmt);
+    $insertStmt = db_prepare($conn, 'INSERT INTO follows (user_id, chef_id) VALUES (?, ?)');
+    db_bind_param($insertStmt, 'ii', $userId, $chefId);
+    db_execute($insertStmt);
+    db_stmt_close($insertStmt);
 
     $isFollowing = true;
     $message = 'ติดตามเชฟเรียบร้อยแล้ว';
 }
 
 // นับจำนวนผู้ติดตามล่าสุดของเชฟ
-$countStmt = mysqli_prepare($conn, 'SELECT COUNT(*) FROM follows WHERE chef_id = ?');
-mysqli_stmt_bind_param($countStmt, 'i', $chefId);
-mysqli_stmt_execute($countStmt);
-mysqli_stmt_bind_result($countStmt, $followerCount);
-mysqli_stmt_fetch($countStmt);
-mysqli_stmt_close($countStmt);
+$countStmt = db_prepare($conn, 'SELECT COUNT(*) AS cnt FROM follows WHERE chef_id = ?');
+db_bind_param($countStmt, 'i', $chefId);
+db_execute($countStmt);
+$countRes = db_get_result($countStmt);
+$countRow = db_fetch_assoc($countRes);
+$followerCount = $countRow ? (int) $countRow['cnt'] : 0;
+db_stmt_close($countStmt);
 
 send_response(200, [
     'success' => true,
     'message' => $message,
     'is_following' => $isFollowing,
-    'follower_count' => (int) $followerCount,
+    'follower_count' => $followerCount,
 ]);
 
-mysqli_close($conn);
+db_close($conn);
+?>

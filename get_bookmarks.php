@@ -20,7 +20,7 @@ if ($userId <= 0) {
     send_response(400, ['success' => false, 'message' => 'กรุณาระบุ user_id']);
 }
 
-$stmt = mysqli_prepare($conn, "
+$stmt = db_prepare($conn, "
     SELECT r.id, r.title, r.description, r.image_url, r.prep_time, r.servings,
            r.is_featured, r.created_at,
            u.id AS author_id, u.full_name AS author_name, u.avatar_url AS author_avatar,
@@ -32,12 +32,12 @@ $stmt = mysqli_prepare($conn, "
     WHERE b.user_id = ?
     ORDER BY b.created_at DESC
 ");
-mysqli_stmt_bind_param($stmt, 'i', $userId);
-mysqli_stmt_execute($stmt);
-$result = mysqli_stmt_get_result($stmt);
+db_bind_param($stmt, 'i', $userId);
+db_execute($stmt);
+$result = db_get_result($stmt);
 
 $recipes = [];
-while ($row = mysqli_fetch_assoc($result)) {
+while ($row = db_fetch_assoc($result)) {
     $recipes[] = [
         'id'          => (int) $row['id'],
         'title'       => $row['title'],
@@ -60,7 +60,7 @@ while ($row = mysqli_fetch_assoc($result)) {
         ] : null,
     ];
 }
-mysqli_stmt_close($stmt);
+db_stmt_close($stmt);
 
 send_response(200, [
     'success' => true,
@@ -68,4 +68,5 @@ send_response(200, [
     'recipes' => $recipes,
 ]);
 
-mysqli_close($conn);
+db_close($conn);
+?>

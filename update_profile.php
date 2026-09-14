@@ -41,28 +41,28 @@ if ($fullName === '' || $username === '' || $email === '') {
 }
 
 // 1. ตรวจสอบว่ามีผู้ใช้รายนี้ในระบบจริงหรือไม่
-$checkUser = mysqli_prepare($conn, "SELECT id, password FROM users WHERE id = ? LIMIT 1");
-mysqli_stmt_bind_param($checkUser, 'i', $userId);
-mysqli_stmt_execute($checkUser);
-$userRes = mysqli_stmt_get_result($checkUser);
-$existingUser = mysqli_fetch_assoc($userRes);
-mysqli_stmt_close($checkUser);
+$checkUser = db_prepare($conn, "SELECT id, password FROM users WHERE id = ? LIMIT 1");
+db_bind_param($checkUser, 'i', $userId);
+db_execute($checkUser);
+$userRes = db_get_result($checkUser);
+$existingUser = db_fetch_assoc($userRes);
+db_stmt_close($checkUser);
 
 if (!$existingUser) {
     send_response(404, ['success' => false, 'message' => 'ไม่พบข้อมูลผู้ใช้ในระบบ']);
 }
 
 // 2. ตรวจสอบว่า username หรือ email ซ้ำกับผู้ใช้อื่นหรือไม่
-$dupCheck = mysqli_prepare($conn, "SELECT id FROM users WHERE (username = ? OR email = ?) AND id != ? LIMIT 1");
-mysqli_stmt_bind_param($dupCheck, 'ssi', $username, $email, $userId);
-mysqli_stmt_execute($dupCheck);
-$dupRes = mysqli_stmt_get_result($dupCheck);
+$dupCheck = db_prepare($conn, "SELECT id FROM users WHERE (username = ? OR email = ?) AND id != ? LIMIT 1");
+db_bind_param($dupCheck, 'ssi', $username, $email, $userId);
+db_execute($dupCheck);
+$dupRes = db_get_result($dupCheck);
 
-if (mysqli_num_rows($dupRes) > 0) {
-    mysqli_stmt_close($dupCheck);
+if (db_num_rows($dupRes) > 0) {
+    db_stmt_close($dupCheck);
     send_response(400, ['success' => false, 'message' => 'ชื่อผู้ใช้ หรือ อีเมล นี้มีผู้ใช้อื่นใช้งานแล้ว']);
 }
-mysqli_stmt_close($dupCheck);
+db_stmt_close($dupCheck);
 
 // 3. ตรวจสอบการเปลี่ยนรหัสผ่าน (ถ้ามีการระบุ new_password)
 $updatePassword = false;
@@ -83,32 +83,33 @@ if ($newPassword !== '') {
 
 // 4. ดำเนินการอัปเดตข้อมูลในตาราง users
 if ($updatePassword) {
-    $stmt = mysqli_prepare(
+    $stmt = db_prepare(
         $conn,
         "UPDATE users SET full_name = ?, username = ?, email = ?, bio = ?, avatar_url = ?, password = ? WHERE id = ?"
     );
-    mysqli_stmt_bind_param($stmt, 'ssssssi', $fullName, $username, $email, $bio, $avatarUrl, $hashedNewPassword, $userId);
+    db_bind_param($stmt, 'ssssssi', $fullName, $username, $email, $bio, $avatarUrl, $hashedNewPassword, $userId);
 } else {
-    $stmt = mysqli_prepare(
+    $stmt = db_prepare(
         $conn,
         "UPDATE users SET full_name = ?, username = ?, email = ?, bio = ?, avatar_url = ? WHERE id = ?"
     );
-    mysqli_stmt_bind_param($stmt, 'sssssi', $fullName, $username, $email, $bio, $avatarUrl, $userId);
+    db_bind_param($stmt, 'sssssi', $fullName, $username, $email, $bio, $avatarUrl, $userId);
 }
 
-$executed = mysqli_stmt_execute($stmt);
-mysqli_stmt_close($stmt);
+$executed = db_execute($stmt);
+db_stmt_close($stmt);
 
 if (!$executed) {
     send_response(500, ['success' => false, 'message' => 'เกิดข้อผิดพลาดในการอัปเดตข้อมูลโปรไฟล์']);
 }
 
 // 5. ดึงข้อมูลผู้ใช้ที่อัปเดตล่าสุดส่งกลับไปที่ Flutter
-$getStmt = mysqli_prepare($conn, "SELECT id, username, email, full_name, avatar_url, bio, role FROM users WHERE id = ? LIMIT 1");
-mysqli_stmt_bind_param($getStmt, 'i', $userId);
-mysqli_stmt_execute($getStmt);
-$updatedUser = mysqli_fetch_assoc(mysqli_stmt_get_result($getStmt));
-mysqli_stmt_close($getStmt);
+$getStmt = db_prepare($conn, "SELECT id, username, email, full_name, avatar_url, bio, role FROM users WHERE id = ? LIMIT 1");
+db_bind_param($getStmt, 'i', $userId);
+db_execute($getStmt);
+$getRes = db_get_result($getStmt);
+$updatedUser = db_fetch_assoc($getRes);
+db_stmt_close($getStmt);
 
 send_response(200, [
     'success' => true,
@@ -116,4 +117,5 @@ send_response(200, [
     'user'    => $updatedUser,
 ]);
 
-mysqli_close($conn);
+db_close($conn);
+?>

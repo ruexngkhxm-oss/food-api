@@ -23,45 +23,48 @@ if ($userId <= 0 || $recipeId <= 0) {
 }
 
 // ----- ตรวจสอบว่าบุ๊กมาร์กไว้อยู่แล้วหรือไม่ -----
-$checkStmt = mysqli_prepare($conn, 'SELECT id FROM bookmarks WHERE user_id = ? AND recipe_id = ? LIMIT 1');
-mysqli_stmt_bind_param($checkStmt, 'ii', $userId, $recipeId);
-mysqli_stmt_execute($checkStmt);
-mysqli_stmt_store_result($checkStmt);
+$checkStmt = db_prepare($conn, 'SELECT id FROM bookmarks WHERE user_id = ? AND recipe_id = ? LIMIT 1');
+db_bind_param($checkStmt, 'ii', $userId, $recipeId);
+db_execute($checkStmt);
+$checkRes = db_get_result($checkStmt);
 
-if (mysqli_stmt_num_rows($checkStmt) > 0) {
+if (db_num_rows($checkRes) > 0) {
     // ----- มีอยู่แล้ว -> ยกเลิกบุ๊กมาร์ก (DELETE) -----
-    mysqli_stmt_close($checkStmt);
+    db_stmt_close($checkStmt);
 
-    $deleteStmt = mysqli_prepare($conn, 'DELETE FROM bookmarks WHERE user_id = ? AND recipe_id = ?');
-    mysqli_stmt_bind_param($deleteStmt, 'ii', $userId, $recipeId);
+    $deleteStmt = db_prepare($conn, 'DELETE FROM bookmarks WHERE user_id = ? AND recipe_id = ?');
+    db_bind_param($deleteStmt, 'ii', $userId, $recipeId);
 
-    if (mysqli_stmt_execute($deleteStmt)) {
+    if (db_execute($deleteStmt)) {
+        db_stmt_close($deleteStmt);
         send_response(200, [
             'success' => true,
             'message' => 'ยกเลิกบุ๊กมาร์กแล้ว',
             'is_bookmarked' => false,
         ]);
     } else {
+        db_stmt_close($deleteStmt);
         send_response(500, ['success' => false, 'message' => 'เกิดข้อผิดพลาดในการยกเลิกบุ๊กมาร์ก']);
     }
-    mysqli_stmt_close($deleteStmt);
 } else {
     // ----- ยังไม่มี -> เพิ่มบุ๊กมาร์กใหม่ (INSERT) -----
-    mysqli_stmt_close($checkStmt);
+    db_stmt_close($checkStmt);
 
-    $insertStmt = mysqli_prepare($conn, 'INSERT INTO bookmarks (user_id, recipe_id) VALUES (?, ?)');
-    mysqli_stmt_bind_param($insertStmt, 'ii', $userId, $recipeId);
+    $insertStmt = db_prepare($conn, 'INSERT INTO bookmarks (user_id, recipe_id) VALUES (?, ?)');
+    db_bind_param($insertStmt, 'ii', $userId, $recipeId);
 
-    if (mysqli_stmt_execute($insertStmt)) {
+    if (db_execute($insertStmt)) {
+        db_stmt_close($insertStmt);
         send_response(201, [
             'success' => true,
             'message' => 'บันทึกสูตรโปรดแล้ว',
             'is_bookmarked' => true,
         ]);
     } else {
+        db_stmt_close($insertStmt);
         send_response(500, ['success' => false, 'message' => 'เกิดข้อผิดพลาดในการบันทึกบุ๊กมาร์ก']);
     }
-    mysqli_stmt_close($insertStmt);
 }
 
-mysqli_close($conn);
+db_close($conn);
+?>

@@ -35,23 +35,25 @@ if ($comment === '') {
 }
 
 // ตรวจสอบว่าผู้ใช้และสูตรอาหารมีอยู่จริงหรือไม่
-$checkUser = mysqli_prepare($conn, "SELECT id FROM users WHERE id = ? LIMIT 1");
-mysqli_stmt_bind_param($checkUser, 'i', $userId);
-mysqli_stmt_execute($checkUser);
-if (mysqli_num_rows(mysqli_stmt_get_result($checkUser)) === 0) {
-    mysqli_stmt_close($checkUser);
+$checkUser = db_prepare($conn, "SELECT id FROM users WHERE id = ? LIMIT 1");
+db_bind_param($checkUser, 'i', $userId);
+db_execute($checkUser);
+$userRes = db_get_result($checkUser);
+if (db_num_rows($userRes) === 0) {
+    db_stmt_close($checkUser);
     send_response(404, ['success' => false, 'message' => 'ไม่พบผู้ใช้นี้ในระบบ']);
 }
-mysqli_stmt_close($checkUser);
+db_stmt_close($checkUser);
 
-$checkRecipe = mysqli_prepare($conn, "SELECT id FROM recipes WHERE id = ? LIMIT 1");
-mysqli_stmt_bind_param($checkRecipe, 'i', $recipeId);
-mysqli_stmt_execute($checkRecipe);
-if (mysqli_num_rows(mysqli_stmt_get_result($checkRecipe)) === 0) {
-    mysqli_stmt_close($checkRecipe);
+$checkRecipe = db_prepare($conn, "SELECT id FROM recipes WHERE id = ? LIMIT 1");
+db_bind_param($checkRecipe, 'i', $recipeId);
+db_execute($checkRecipe);
+$recipeRes = db_get_result($checkRecipe);
+if (db_num_rows($recipeRes) === 0) {
+    db_stmt_close($checkRecipe);
     send_response(404, ['success' => false, 'message' => 'ไม่พบสูตรอาหารนี้ในระบบ']);
 }
-mysqli_stmt_close($checkRecipe);
+db_stmt_close($checkRecipe);
 
 // การตอบกลับความคิดเห็นย่อย ไม่สามารถให้คะแนนดาวได้
 if ($parentId) {
@@ -60,57 +62,60 @@ if ($parentId) {
 
 // ป้องกันการปั้มดาว: ตรวจสอบว่าผู้ใช้คนนี้เคยให้คะแนนดาวสูตรนี้ไปแล้วหรือยัง
 if ($rating !== null) {
-    $checkRatedStmt = mysqli_prepare($conn, "SELECT id FROM recipe_reviews WHERE recipe_id = ? AND user_id = ? AND rating IS NOT NULL LIMIT 1");
-    mysqli_stmt_bind_param($checkRatedStmt, 'ii', $recipeId, $userId);
-    mysqli_stmt_execute($checkRatedStmt);
-    mysqli_stmt_store_result($checkRatedStmt);
-    if (mysqli_stmt_num_rows($checkRatedStmt) > 0) {
+    $checkRatedStmt = db_prepare($conn, "SELECT id FROM recipe_reviews WHERE recipe_id = ? AND user_id = ? AND rating IS NOT NULL LIMIT 1");
+    db_bind_param($checkRatedStmt, 'ii', $recipeId, $userId);
+    db_execute($checkRatedStmt);
+    $ratedRes = db_get_result($checkRatedStmt);
+    if (db_num_rows($ratedRes) > 0) {
         $rating = null; // หากเคยให้ดาวไปแล้ว บันทึกข้อความคอมเมนต์อย่างเดียว ไม่ให้เพิ่มดาวซ้ำ
     }
-    mysqli_stmt_close($checkRatedStmt);
+    db_stmt_close($checkRatedStmt);
 }
 
 // บันทึกคอมเมนต์/ตอบกลับลงตาราง recipe_reviews
-$stmt = mysqli_prepare(
+$stmt = db_prepare(
     $conn,
     "INSERT INTO recipe_reviews (recipe_id, user_id, parent_id, rating, comment) VALUES (?, ?, ?, ?, ?)"
 );
-mysqli_stmt_bind_param($stmt, 'iiiis', $recipeId, $userId, $parentId, $rating, $comment);
-$executed = mysqli_stmt_execute($stmt);
+db_bind_param($stmt, 'iiiis', $recipeId, $userId, $parentId, $rating, $comment);
+$executed = db_execute($stmt);
 
 if (!$executed) {
-    mysqli_stmt_close($stmt);
-    send_response(500, ['success' => false, 'message' => 'เกิดข้อผิดพลาดในการบันทึกความคิดเห็น']);
+    db_stmt_close($stmt);
+    send_response(500, ['success' => false, 'message' => 'เกิดข้อผิดพลาดในการบันทึกความคิดเห็น: ' . db_error($conn)]);
 }
 
-$newCommentId = mysqli_insert_id($conn);
-mysqli_stmt_close($stmt);
+$newCommentId = db_insert_id($conn);
+db_stmt_close($stmt);
 
 // หากเป็นการตอบกลับความคิดเห็น ให้ส่งการแจ้งเตือนหาเจ้าของความคิดเห็นเดิม
 if ($parentId) {
-    $parentStmt = mysqli_prepare($conn, "SELECT user_id FROM recipe_reviews WHERE id = ? LIMIT 1");
-    mysqli_stmt_bind_param($parentStmt, 'i', $parentId);
-    mysqli_stmt_execute($parentStmt);
-    $parentRow = mysqli_fetch_assoc(mysqli_stmt_get_result($parentStmt));
-    mysqli_stmt_close($parentStmt);
+    $parentStmt = db_prepare($conn, "SELECT user_id FROM recipe_reviews WHERE id = ? LIMIT 1");
+    db_bind_param($parentStmt, 'i', $parentId);
+    db_execute($parentStmt);
+    $pRes = db_get_result($parentStmt);
+    $parentRow = db_fetch_assoc($pRes);
+    db_stmt_close($parentStmt);
 
     if ($parentRow && (int)$parentRow['user_id'] !== $userId) {
         $targetUserId = (int)$parentRow['user_id'];
 
-        $userStmt = mysqli_prepare($conn, "SELECT full_name, role FROM users WHERE id = ? LIMIT 1");
-        mysqli_stmt_bind_param($userStmt, 'i', $userId);
-        mysqli_stmt_execute($userStmt);
-        $userRow = mysqli_fetch_assoc(mysqli_stmt_get_result($userStmt));
-        mysqli_stmt_close($userStmt);
+        $userStmt = db_prepare($conn, "SELECT full_name, role FROM users WHERE id = ? LIMIT 1");
+        db_bind_param($userStmt, 'i', $userId);
+        db_execute($userStmt);
+        $uRes = db_get_result($userStmt);
+        $userRow = db_fetch_assoc($uRes);
+        db_stmt_close($userStmt);
 
         $replierName = $userRow['full_name'] ?? 'ผู้ใช้งาน';
         $replierRole = $userRow['role'] ?? 'user';
 
-        $recipeStmt = mysqli_prepare($conn, "SELECT title FROM recipes WHERE id = ? LIMIT 1");
-        mysqli_stmt_bind_param($recipeStmt, 'i', $recipeId);
-        mysqli_stmt_execute($recipeStmt);
-        $recipeRow = mysqli_fetch_assoc(mysqli_stmt_get_result($recipeStmt));
-        mysqli_stmt_close($recipeStmt);
+        $recipeStmt = db_prepare($conn, "SELECT title FROM recipes WHERE id = ? LIMIT 1");
+        db_bind_param($recipeStmt, 'i', $recipeId);
+        db_execute($recipeStmt);
+        $rRes = db_get_result($recipeStmt);
+        $recipeRow = db_fetch_assoc($rRes);
+        db_stmt_close($recipeStmt);
 
         $recipeTitle = $recipeRow['title'] ?? 'สูตรอาหาร';
 
@@ -118,25 +123,26 @@ if ($parentId) {
         $notifTitle = $isChef ? "👨‍🍳 เชฟ{$replierName} ตอบกลับความคิดเห็นของคุณ!" : "💬 {$replierName} ตอบกลับความคิดเห็นของคุณ!";
         $notifBody  = "\"{$comment}\" ในสูตรอาหาร: {$recipeTitle}";
 
-        $notifStmt = mysqli_prepare($conn, "INSERT INTO notifications (user_id, title, body) VALUES (?, ?, ?)");
-        mysqli_stmt_bind_param($notifStmt, 'iss', $targetUserId, $notifTitle, $notifBody);
-        mysqli_stmt_execute($notifStmt);
-        mysqli_stmt_close($notifStmt);
+        $notifStmt = db_prepare($conn, "INSERT INTO notifications (user_id, title, body) VALUES (?, ?, ?)");
+        db_bind_param($notifStmt, 'iss', $targetUserId, $notifTitle, $notifBody);
+        db_execute($notifStmt);
+        db_stmt_close($notifStmt);
     }
 }
 
 // ดึงข้อมูลคอมเมนต์ที่เพิ่งเพิ่มส่งกลับไป
-$getStmt = mysqli_prepare($conn, "
+$getStmt = db_prepare($conn, "
     SELECT rr.id, rr.recipe_id, rr.parent_id, rr.rating, rr.comment, rr.created_at,
            u.id AS user_id, u.full_name, u.avatar_url, u.role
     FROM recipe_reviews rr
     INNER JOIN users u ON rr.user_id = u.id
     WHERE rr.id = ? LIMIT 1
 ");
-mysqli_stmt_bind_param($getStmt, 'i', $newCommentId);
-mysqli_stmt_execute($getStmt);
-$row = mysqli_fetch_assoc(mysqli_stmt_get_result($getStmt));
-mysqli_stmt_close($getStmt);
+db_bind_param($getStmt, 'i', $newCommentId);
+db_execute($getStmt);
+$getRes = db_get_result($getStmt);
+$row = db_fetch_assoc($getRes);
+db_stmt_close($getStmt);
 
 send_response(201, [
     'success' => true,
@@ -158,4 +164,5 @@ send_response(201, [
     ],
 ]);
 
-mysqli_close($conn);
+db_close($conn);
+?>

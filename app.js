@@ -456,25 +456,25 @@ async function openCommentsModal(event, recipeId, recipeTitle) {
                 const repliesList = c.replies || [];
                 const repliesHtml = repliesList.map(r => {
                     currentRecipeComments[r.id] = r.comment || '';
-                    const isMyReply = currentUser && ((r.author && (r.author.id == currentUser.id)) || currentUser.role === 'chef' || currentUser.id == 3);
+                    const isMyReply = currentUser && r.author && (r.author.id == currentUser.id);
+                    const canDeleteReply = currentUser && ((r.author && (r.author.id == currentUser.id)) || currentUser.role === 'chef' || currentUser.role === 'admin' || currentUser.id == 3);
                     return `
                         <div style="background: var(--primary-light); padding: 10px 14px; border-radius: 10px; font-size: 13px; color: var(--primary-dark); margin-top: 8px;">
                             <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 8px;">
                                 <div>
                                     <strong>👨‍🍳 ${r.author ? (r.author.full_name || r.author.fullName) : 'คำตอบของคุณ'}:</strong> ${r.comment}
                                 </div>
-                                ${isMyReply ? `
-                                    <div style="display: flex; gap: 4px; flex-shrink: 0;">
-                                        <button type="button" class="btn btn-secondary btn-sm" style="padding: 2px 6px; font-size: 11px;" onclick="openEditCommentModal(event, ${r.id}, ${recipeId})">✏️ แก้ไข</button>
-                                        <button type="button" class="btn btn-danger btn-sm" style="padding: 2px 6px; font-size: 11px;" onclick="deleteChefComment(event, ${r.id}, ${recipeId})">🗑️ ลบ</button>
-                                    </div>
-                                ` : ''}
+                                <div style="display: flex; gap: 4px; flex-shrink: 0;">
+                                    ${isMyReply ? `<button type="button" class="btn btn-secondary btn-sm" style="padding: 2px 6px; font-size: 11px;" onclick="openEditCommentModal(event, ${r.id}, ${recipeId})">✏️ แก้ไข</button>` : ''}
+                                    ${canDeleteReply ? `<button type="button" class="btn btn-danger btn-sm" style="padding: 2px 6px; font-size: 11px;" onclick="deleteChefComment(event, ${r.id}, ${recipeId})">🗑️ ลบ</button>` : ''}
+                                </div>
                             </div>
                         </div>
                     `;
                 }).join("");
 
-                const isMyComment = currentUser && ((c.author && (c.author.id == currentUser.id)) || currentUser.role === 'chef' || currentUser.id == 3);
+                const isMyComment = currentUser && c.author && (c.author.id == currentUser.id);
+                const canDeleteComment = currentUser && ((c.author && (c.author.id == currentUser.id)) || currentUser.role === 'chef' || currentUser.role === 'admin' || currentUser.id == 3);
 
                 return `
                     <div class="web-comment-card">
@@ -484,6 +484,8 @@ async function openCommentsModal(event, recipeId, recipeTitle) {
                                 ${c.rating ? `<span style="font-size: 12px; color: #F59E0B; margin-right: 4px;">⭐ ${c.rating}</span>` : ''}
                                 ${isMyComment ? `
                                     <button type="button" class="btn btn-secondary btn-sm" style="padding: 2px 6px; font-size: 11px;" onclick="openEditCommentModal(event, ${c.id}, ${recipeId})">✏️ แก้ไข</button>
+                                ` : ''}
+                                ${canDeleteComment ? `
                                     <button type="button" class="btn btn-danger btn-sm" style="padding: 2px 6px; font-size: 11px;" onclick="deleteChefComment(event, ${c.id}, ${recipeId})">🗑️ ลบ</button>
                                 ` : ''}
                             </div>

@@ -56,8 +56,8 @@ if (!$cRow) {
 }
 
 // อนุญาตลบหากเป็นความคิดเห็นของตนเอง หรือเป็นเจ้าของสูตร หรือเป็นเชฟ/แอดมิน
-$canDelete = ((int) $cRow['user_id'] === $userId) ||
-             (isset($cRow['recipe_author_id']) && (int) $cRow['recipe_author_id'] === $userId) ||
+$canDelete = ((int) $cRow['user_id'] === (int) $userId) ||
+             (isset($cRow['recipe_author_id']) && (int) $cRow['recipe_author_id'] === (int) $userId) ||
              $isChefOrAdmin;
 
 if (!$canDelete) {

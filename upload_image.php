@@ -77,12 +77,24 @@ if (isset($_FILES['image']) && $_FILES['image']['error'] === UPLOAD_ERR_OK) {
     }
 }
 
-$fileUrl = $baseUrl . '/uploads/' . $savedFileName;
+$fileUrl = $baseUrl . '/get_image.php?file=' . $savedFileName;
+$relativePath = 'get_image.php?file=' . $savedFileName;
+$dataUri = '';
+
+if (file_exists($destination)) {
+    $rawContent = file_get_contents($destination);
+    if ($rawContent !== false) {
+        $ext = strtolower(pathinfo($savedFileName, PATHINFO_EXTENSION));
+        $mime = ($ext === 'png') ? 'image/png' : (($ext === 'webp') ? 'image/webp' : 'image/jpeg');
+        $dataUri = 'data:' . $mime . ';base64,' . base64_encode($rawContent);
+    }
+}
 
 send_response(200, [
     'success'       => true,
     'message'       => 'อัปโหลดรูปภาพสำเร็จ',
     'image_url'     => $fileUrl,
-    'relative_path' => 'uploads/' . $savedFileName,
+    'relative_path' => $relativePath,
     'filename'      => $savedFileName,
+    'image_base64'  => $dataUri,
 ]);

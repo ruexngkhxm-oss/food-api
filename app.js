@@ -260,14 +260,37 @@ function handleLogout(event) {
     return false;
 }
 
-function showDashboard() {
-    document.getElementById("loginSection").classList.add("hidden");
-    document.getElementById("dashboardSection").classList.remove("hidden");
-
+function updateUserHeaderUI() {
+    if (!currentUser) return;
     const greeting = getTimeGreeting();
     const rawName = currentUser.full_name || currentUser.username || "เตวรากรหมู่ 6";
     const chefTitle = rawName.startsWith("เชฟ") ? rawName : `เชฟ${rawName}`;
     document.getElementById("chefDisplayName").innerText = `${greeting.text} ${chefTitle} ${greeting.emoji}`;
+
+    const bioEl = document.getElementById("chefDisplayBio");
+    if (bioEl) {
+        bioEl.innerText = currentUser.bio || "จัดการคลังสูตรอาหาร สถิติเชิงลึก และตอบกลับความคิดเห็นจากผู้ใช้ในแอป";
+    }
+
+    const avatarImg = document.getElementById("chefHeaderAvatar");
+    const avatarFallback = document.getElementById("chefHeaderAvatarFallback");
+    if (avatarImg && avatarFallback) {
+        if (currentUser.avatar_url && currentUser.avatar_url.trim() !== '') {
+            avatarImg.src = currentUser.avatar_url;
+            avatarImg.style.display = 'block';
+            avatarFallback.style.display = 'none';
+        } else {
+            avatarImg.style.display = 'none';
+            avatarFallback.style.display = 'flex';
+        }
+    }
+}
+
+function showDashboard() {
+    document.getElementById("loginSection").classList.add("hidden");
+    document.getElementById("dashboardSection").classList.remove("hidden");
+
+    updateUserHeaderUI();
     
     loadCategoriesAndTags();
     loadChefRecipes();
@@ -458,11 +481,20 @@ async function openCommentsModal(event, recipeId, recipeTitle) {
                     currentRecipeComments[r.id] = r.comment || '';
                     const isMyReply = currentUser && r.author && (r.author.id == currentUser.id);
                     const canDeleteReply = currentUser && ((r.author && (r.author.id == currentUser.id)) || currentUser.role === 'chef' || currentUser.role === 'admin' || currentUser.id == 3);
+
+                    const replyAuthorName = r.author ? (r.author.full_name || r.author.fullName || 'ผู้ใช้งานแอป') : 'คำตอบของคุณ';
+                    const replyAvatarUrl = (r.author && r.author.avatar_url && r.author.avatar_url.trim() !== '') 
+                        ? r.author.avatar_url 
+                        : `https://ui-avatars.com/api/?name=${encodeURIComponent(replyAuthorName)}&background=FF6B35&color=fff`;
+
                     return `
                         <div style="background: var(--primary-light); padding: 10px 14px; border-radius: 10px; font-size: 13px; color: var(--primary-dark); margin-top: 8px;">
-                            <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 8px;">
-                                <div>
-                                    <strong>👨‍🍳 ${r.author ? (r.author.full_name || r.author.fullName) : 'คำตอบของคุณ'}:</strong> ${r.comment}
+                            <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px;">
+                                <div style="display: flex; align-items: center; gap: 8px;">
+                                    <img src="${replyAvatarUrl}" alt="${replyAuthorName}" style="width: 26px; height: 26px; border-radius: 50%; object-fit: cover; border: 1.5px solid var(--primary);" onerror="this.onerror=null; this.src='https://ui-avatars.com/api/?name=${encodeURIComponent(replyAuthorName)}&background=FF6B35&color=fff';">
+                                    <div>
+                                        <strong>👨‍🍳 ${replyAuthorName}:</strong> ${r.comment}
+                                    </div>
                                 </div>
                                 <div style="display: flex; gap: 4px; flex-shrink: 0;">
                                     ${isMyReply ? `<button type="button" class="btn btn-secondary btn-sm" style="padding: 2px 6px; font-size: 11px;" onclick="openEditCommentModal(event, ${r.id}, ${recipeId})">✏️ แก้ไข</button>` : ''}
@@ -476,10 +508,21 @@ async function openCommentsModal(event, recipeId, recipeTitle) {
                 const isMyComment = currentUser && c.author && (c.author.id == currentUser.id);
                 const canDeleteComment = currentUser && ((c.author && (c.author.id == currentUser.id)) || currentUser.role === 'chef' || currentUser.role === 'admin' || currentUser.id == 3);
 
+                const authorName = c.author ? (c.author.full_name || c.author.fullName || 'ผู้ใช้งานแอป') : 'ผู้ใช้งานแอป';
+                const avatarUrl = (c.author && c.author.avatar_url && c.author.avatar_url.trim() !== '') 
+                    ? c.author.avatar_url 
+                    : `https://ui-avatars.com/api/?name=${encodeURIComponent(authorName)}&background=F59E0B&color=fff`;
+
                 return `
                     <div class="web-comment-card">
                         <div style="display: flex; justify-content: space-between; align-items: center;">
-                            <div class="web-comment-author">👤 ${c.author ? (c.author.full_name || c.author.fullName) : 'ผู้ใช้งานแอป'}</div>
+                            <div class="web-comment-author" style="display: flex; align-items: center; gap: 10px;">
+                                <img src="${avatarUrl}" alt="${authorName}" style="width: 34px; height: 34px; border-radius: 50%; object-fit: cover; border: 2px solid var(--primary);" onerror="this.onerror=null; this.src='https://ui-avatars.com/api/?name=${encodeURIComponent(authorName)}&background=F59E0B&color=fff';">
+                                <div>
+                                    <strong style="font-weight: 600; color: var(--text-primary); font-size: 14px;">${authorName}</strong>
+                                    ${c.author && c.author.role === 'chef' ? '<span class="badge-chef" style="font-size: 10px; margin-left: 4px;">CHEF</span>' : ''}
+                                </div>
+                            </div>
                             <div style="display: flex; align-items: center; gap: 6px;">
                                 ${c.rating ? `<span style="font-size: 12px; color: #F59E0B; margin-right: 4px;">⭐ ${c.rating}</span>` : ''}
                                 ${isMyComment ? `
@@ -490,7 +533,7 @@ async function openCommentsModal(event, recipeId, recipeTitle) {
                                 ` : ''}
                             </div>
                         </div>
-                        <div class="web-comment-text">"${c.comment || c.comment_text || ''}"</div>
+                        <div class="web-comment-text" style="margin-top: 8px;">"${c.comment || c.comment_text || ''}"</div>
                         
                         ${repliesHtml}
 
@@ -1203,5 +1246,162 @@ async function handleRecipeSubmit(event) {
     showToast(isEditMode ? "แก้ไขสูตรอาหารสำเร็จ!" : "สร้างสูตรอาหารเรียบร้อยแล้ว!", "success");
     closeRecipeModal();
     renderRecipesGrid(chefRecipesList);
+    return false;
+}
+
+// Profile Modal Handlers
+let selectedProfileImageFile = null;
+let isProfileImageRemoved = false;
+
+function openProfileModal(event) {
+    if (event && event.preventDefault) {
+        event.preventDefault();
+        event.stopPropagation();
+    }
+    if (!currentUser) return false;
+
+    selectedProfileImageFile = null;
+    isProfileImageRemoved = false;
+
+    document.getElementById("profileFullNameInput").value = currentUser.full_name || currentUser.username || "";
+    document.getElementById("profileBioInput").value = currentUser.bio || "";
+    
+    const previewImg = document.getElementById("profileAvatarPreview");
+    const previewFallback = document.getElementById("profileAvatarPreviewFallback");
+    
+    if (currentUser.avatar_url && currentUser.avatar_url.trim() !== '') {
+        previewImg.src = currentUser.avatar_url;
+        previewImg.style.display = 'block';
+        previewFallback.style.display = 'none';
+    } else {
+        previewImg.style.display = 'none';
+        previewFallback.style.display = 'flex';
+    }
+
+    document.getElementById("profileModal").classList.remove("hidden");
+    return false;
+}
+
+function closeProfileModal(event) {
+    if (event && event.preventDefault) {
+        event.preventDefault();
+        event.stopPropagation();
+    }
+    document.getElementById("profileModal").classList.add("hidden");
+    return false;
+}
+
+function handleProfileImageSelected(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    selectedProfileImageFile = file;
+    isProfileImageRemoved = false;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        const previewImg = document.getElementById("profileAvatarPreview");
+        const previewFallback = document.getElementById("profileAvatarPreviewFallback");
+        previewImg.src = e.target.result;
+        previewImg.style.display = 'block';
+        previewFallback.style.display = 'none';
+    };
+    reader.readAsDataURL(file);
+}
+
+function removeProfileAvatar(event) {
+    if (event && event.preventDefault) {
+        event.preventDefault();
+        event.stopPropagation();
+    }
+    selectedProfileImageFile = null;
+    isProfileImageRemoved = true;
+
+    const previewImg = document.getElementById("profileAvatarPreview");
+    const previewFallback = document.getElementById("profileAvatarPreviewFallback");
+    previewImg.style.display = 'none';
+    previewFallback.style.display = 'flex';
+    showToast("ลบรูปโปรไฟล์แล้ว (กดบันทึกเพื่อยืนยัน)", "info");
+    return false;
+}
+
+async function submitChefProfile(event) {
+    if (event) {
+        event.preventDefault();
+        event.stopPropagation();
+    }
+
+    const fullName = document.getElementById("profileFullNameInput").value.trim();
+    const bio = document.getElementById("profileBioInput").value.trim();
+    const saveBtn = document.getElementById("saveProfileBtn");
+
+    if (!fullName) {
+        showToast("กรุณากรอกชื่อ-นามสกุล", "error");
+        return false;
+    }
+
+    saveBtn.disabled = true;
+    saveBtn.innerText = "กำลังบันทึก...";
+
+    let finalAvatarUrl = currentUser.avatar_url || '';
+
+    if (isProfileImageRemoved) {
+        finalAvatarUrl = '';
+    } else if (selectedProfileImageFile) {
+        try {
+            const formData = new FormData();
+            formData.append("image", selectedProfileImageFile);
+
+            const uploadRes = await fetch(`${getApiUrl()}/upload_image.php`, {
+                method: "POST",
+                body: formData
+            });
+            const uploadData = await uploadRes.json();
+            if (uploadData.success && uploadData.image_url) {
+                finalAvatarUrl = uploadData.image_url;
+            } else {
+                showToast(uploadData.message || "อัปโหลดรูปโปรไฟล์ไม่สำเร็จ", "error");
+                saveBtn.disabled = false;
+                saveBtn.innerText = "💾 บันทึกการเปลี่ยนแปลง";
+                return false;
+            }
+        } catch (err) {
+            showToast("เกิดข้อผิดพลาดในการอัปโหลดรูปภาพ", "error");
+            saveBtn.disabled = false;
+            saveBtn.innerText = "💾 บันทึกการเปลี่ยนแปลง";
+            return false;
+        }
+    }
+
+    try {
+        const response = await fetch(`${getApiUrl()}/update_profile.php`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                user_id: currentUser.id,
+                full_name: fullName,
+                username: currentUser.username || 'chef_pom',
+                email: currentUser.email || 'chef@food.com',
+                bio: bio,
+                avatar_url: finalAvatarUrl
+            })
+        });
+
+        const data = await response.json();
+        if (data.success && data.user) {
+            currentUser = data.user;
+            localStorage.setItem("chef_user", JSON.stringify(currentUser));
+            updateUserHeaderUI();
+            showToast("อัปเดตโปรไฟล์เรียบร้อยแล้ว!", "success");
+            closeProfileModal();
+        } else {
+            showToast(data.message || "เกิดข้อผิดพลาดในการอัปเดตโปรไฟล์", "error");
+        }
+    } catch (e) {
+        showToast("เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์", "error");
+    }
+
+    saveBtn.disabled = false;
+    saveBtn.innerText = "💾 บันทึกการเปลี่ยนแปลง";
     return false;
 }

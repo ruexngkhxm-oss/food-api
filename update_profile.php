@@ -36,12 +36,8 @@ if ($userId <= 0) {
     send_response(400, ['success' => false, 'message' => 'กรุณาระบุ user_id']);
 }
 
-if ($fullName === '' || $username === '' || $email === '') {
-    send_response(400, ['success' => false, 'message' => 'กรุณากรอกชื่อ-นามสกุล, ชื่อผู้ใช้ และอีเมล']);
-}
-
 // 1. ตรวจสอบว่ามีผู้ใช้รายนี้ในระบบจริงหรือไม่
-$checkUser = db_prepare($conn, "SELECT id, password FROM users WHERE id = ? LIMIT 1");
+$checkUser = db_prepare($conn, "SELECT id, username, email, full_name, avatar_url, bio, password FROM users WHERE id = ? LIMIT 1");
 db_bind_param($checkUser, 'i', $userId);
 db_execute($checkUser);
 $userRes = db_get_result($checkUser);
@@ -51,6 +47,11 @@ db_stmt_close($checkUser);
 if (!$existingUser) {
     send_response(404, ['success' => false, 'message' => 'ไม่พบข้อมูลผู้ใช้ในระบบ']);
 }
+
+if ($fullName === '') $fullName = $existingUser['full_name'];
+if ($username === '') $username = $existingUser['username'];
+if ($email === '') $email = $existingUser['email'];
+if (!isset($body['avatar_url'])) $avatarUrl = $existingUser['avatar_url'];
 
 // 2. ตรวจสอบว่า username หรือ email ซ้ำกับผู้ใช้อื่นหรือไม่
 $dupCheck = db_prepare($conn, "SELECT id FROM users WHERE (username = ? OR email = ?) AND id != ? LIMIT 1");
